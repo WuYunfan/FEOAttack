@@ -23,23 +23,6 @@ def get_trainer(config, model):
     return trainer
 
 
-class GPConfig:
-    def __init__(self, trainer_config):
-        self.order = 0
-        if 'gp_config' in trainer_config:
-            config = trainer_config['gp_config']
-            self.order = config.get('order', 2)
-            self.sample_p = config.get('sample_p', 1.)
-            self.chunk_size = int(config.get('chunk_size', 1e6))
-            self.threshold_odd = config['threshold_odd']
-            self.threshold_even = config['threshold_even']
-            self.alpha_odd = config['alpha_odd']
-            self.alpha_even = config['alpha_even']
-            model = trainer_config['model']
-            dataset = trainer_config['dataset']
-            self.mat = generate_adj_mat(dataset.train_array, model)
-
-
 class BasicTrainer:
     def __init__(self, trainer_config):
         if trainer_config.get('verbose', True):
@@ -58,7 +41,6 @@ class BasicTrainer:
         self.best_ndcg = -np.inf
         self.save_path = None
         self.opt = None
-        self.gp_config = GPConfig(trainer_config)
 
         test_user = TensorDataset(torch.arange(self.dataset.n_users, dtype=torch.int64, device=self.device))
         self.test_user_loader = DataLoader(test_user, batch_size=trainer_config['test_batch_size'])

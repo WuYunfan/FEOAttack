@@ -12,56 +12,6 @@ from torch.autograd import Function
 import matplotlib.pyplot as plt
 
 
-class GPFunction(Function):
-    @staticmethod
-    def forward(ctx, rep, config):
-        ctx.config = config
-        ctx.save_for_backward(rep)
-        return rep
-
-    @staticmethod
-    def backward(ctx, grad_out):
-        config = ctx.config
-        if random.random() >= config.sample_p:
-            return grad_out, None
-
-        order = config.order
-        threshold_odd = config.threshold_odd
-        threshold_even = config.threshold_even
-        alpha_odd = config.alpha_odd
-        alpha_even = config.alpha_even
-        mat = config.mat
-        chunk_size = config.chunk_size
-        rep = ctx.saved_tensors[0]
-
-        col, row = mat.g.edges()
-        n_non_zeros = mat.g.num_edges()
-        end_indices = list(range(0, n_non_zeros, chunk_size)) + [n_non_zeros]
-        with torch.no_grad():
-            away = []
-            for i_chunk in range(1, len(end_indices)):
-                start_idx = end_indices[i_chunk - 1]
-                end_idx = end_indices[i_chunk]
-                away_batch = torch.sum(rep[row[start_idx:end_idx], :] * grad_out[col[start_idx:end_idx], :], dim=1)
-                away_batch += torch.sum(rep[col[start_idx:end_idx], :] * grad_out[row[start_idx:end_idx], :], dim=1)
-                away.append(away_batch)
-            away = torch.cat(away)
-            edge_odd = torch.gt(away, threshold_odd)
-            edge_even = torch.gt(away, threshold_even)
-
-        mat_odd = mat.get_masked_mat(edge_odd)
-        mat_even = mat.get_masked_mat(edge_even)
-        grad_odd = grad_even = grad_out.detach()
-        for i in range(1, order * 2 + 1):
-            grad_odd = mat_odd.spmm(grad_odd, norm='both')
-            grad_even = mat_even.spmm(grad_even, norm='both')
-            if i % 2 == 1:
-                grad_out = grad_out + alpha_odd * grad_odd
-            else:
-                grad_out = grad_out + alpha_even * grad_even
-        return grad_out, None
-
-
 def get_model(config, dataset):
     config = config.copy()
     config['dataset'] = dataset
@@ -103,14 +53,8 @@ class BasicModel(nn.Module):
     def initial_embeddings(self):
         normal_(self.embedding.weight, std=0.1)
 
-    def gp_rep(self, gp_config):
-        rep = self.get_rep()
-        if gp_config.order == 0:
-            return rep
-        return GPFunction.apply(rep, gp_config)
-
     def bpr_forward(self, users, pos_items, neg_items, gp_config):
-        rep = self.gp_rep(gp_config)
+        rep = self.get_rep()
         users_r = rep[users, :]
         pos_items_r, neg_items_r = rep[self.n_users + pos_items, :], rep[self.n_users + neg_items, :]
         l2_norm_sq = torch.norm(users_r, p=2, dim=1) ** 2 + torch.norm(pos_items_r, p=2, dim=1) ** 2 \
@@ -118,7 +62,7 @@ class BasicModel(nn.Module):
         return users_r, pos_items_r, neg_items_r, l2_norm_sq
 
     def bce_forward(self, pos_users, pos_items, neg_users, neg_items, gp_config):
-        rep = self.gp_rep(gp_config)
+        rep = self.get_rep()
         pos_users_r, pos_items_r = rep[pos_users, :], rep[self.n_users + pos_items, :]
         neg_users_r, neg_items_r = rep[neg_users, :], rep[self.n_users + neg_items, :]
         pos_scores = torch.sum(pos_users_r * pos_items_r, dim=1)
@@ -130,7 +74,7 @@ class BasicModel(nn.Module):
         return pos_scores, neg_scores, l2_norm_sq
 
     def forward(self, users, gp_config):
-        rep = self.gp_rep(gp_config)
+        rep = self.get_rep()
         users_r = rep[users, :]
         all_items_r = rep[self.n_users:, :]
         scores = torch.mm(users_r, all_items_r.t())

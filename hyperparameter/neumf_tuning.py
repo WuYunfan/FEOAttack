@@ -11,8 +11,8 @@ from optuna.study import MaxTrialsCallback
 
 
 def objective(trial):
-    lr = trial.suggest_categorical('lr', [1.e-4, 1.e-3, 1.e-2, 1.e-1])
-    l2_reg = trial.suggest_categorical('l2_reg', [1.e-5, 1.e-4, 1.e-3, 1.e-2, 1.e-1])
+    lr = trial.suggest_categorical('lr', [1.e-3, 1.e-2])
+    l2_reg = trial.suggest_categorical('l2_reg', [1.e-4, 1.e-3, 1.e-2, 1.e-1])
     set_seed(2023)
     device = torch.device('cuda')
     dataset_config = {'name': 'ProcessedDataset', 'path': 'data/Gowalla/time',

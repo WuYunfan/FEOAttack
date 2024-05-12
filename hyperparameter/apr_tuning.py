@@ -15,7 +15,7 @@ def objective(trial):
     l2_reg = None
 
     eps = trial.suggest_categorical('eps', [1.e-2, 1.e-1, 1., 1.e1])
-    adv_reg = trial.suggest_categorical('adv_reg', 1.e-3, 1.e1, [1.e-3, 1.e-2, 1.e-1, 1., 1.e1])
+    adv_reg = trial.suggest_categorical('adv_reg', [1.e-2, 1.e-1, 1., 1.e1])
     set_seed(2023)
     device = torch.device('cuda')
     dataset_config = {'name': 'ProcessedDataset', 'path': 'data/Gowalla/time',

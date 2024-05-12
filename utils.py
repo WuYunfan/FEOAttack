@@ -54,12 +54,9 @@ class TorchSparseMat:
         degree = torch.maximum(degree, eps)
         self.inv_deg = torch.pow(degree, -0.5)
 
-    def spmm(self, r_mat, value_tensor=None, norm=None):
-        if value_tensor is None:
+    def spmm(self, r_mat, values=None, norm=None):
+        if values is None:
             values = torch.ones([self.g.num_edges()], dtype=torch.float32, device=self.device)
-        else:
-            values = value_tensor
-
         assert r_mat.shape[0] == self.shape[1]
         padding_tensor = torch.empty([max(self.shape) - r_mat.shape[0], r_mat.shape[1]],
                                      dtype=torch.float32, device=self.device)
@@ -74,12 +71,6 @@ class TorchSparseMat:
             values = values * self.inv_deg[row] * self.inv_deg[row]
         x = dgl.ops.gspmm(self.g, 'mul', 'sum', lhs_data=padded_r_mat, rhs_data=values)
         return x[:self.shape[0], :]
-
-    def get_masked_mat(self, mask):
-        col, row = self.g.edges()
-        mat = TorchSparseMat(row[mask], col[mask], self.shape, self.device)
-        mat.inv_deg = self.inv_deg
-        return mat
 
 
 class AverageMeter:
@@ -138,7 +129,7 @@ def bce_loss(profiles, scores, weight):
     n_profiles = 1. - profiles
     loss_p = (F.softplus(-scores) * profiles).sum() / profiles.sum()
     loss_n = (F.softplus(scores) * n_profiles).sum() / n_profiles.sum()
-    loss = loss_p + weight * loss_n
+    loss = weight * loss_p + loss_n
     return loss
 
 
@@ -147,31 +138,6 @@ def ce_loss(scores, target_item_tensor):
     return -log_probs[:, target_item_tensor].mean()
 
 
-def occupy_gpu_mem(memeory_size):
-    x = torch.cuda.FloatTensor(256, 1024, memeory_size)
-    torch.cuda.synchronize()
-    del x
-    gc.collect()
-
-
-def initial_parameter(new_model, pre_train_model):
-    n_old_users = pre_train_model.n_users
-    n_items = pre_train_model.n_items
-    with torch.no_grad():
-        new_model.embedding.weight.data[:n_old_users, :] = pre_train_model.embedding.weight[:n_old_users, :]
-        new_model.embedding.weight.data[-n_items:, :] = pre_train_model.embedding.weight[-n_items:, :]
-
-
-class PartialDataLoader:
-    def __init__(self, original_loader, ratio):
-        self.original_loader = original_loader
-        self.ratio = min(ratio, 1.)
-        self.length = max(1, int(len(self.original_loader) * self.ratio))
-
-    def __iter__(self):
-        batch_iterator = iter(self.original_loader)
-        for _ in range(self.length):
-            yield next(batch_iterator)
-
-    def __len__(self):
-        return self.length
+def vprint(content, verbose):
+    if verbose:
+        print(content)

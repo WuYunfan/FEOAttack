@@ -14,7 +14,7 @@ import numpy as np
 
 def objective(trial):
     lr = trial.suggest_categorical('lr', [1., 1.e1, 1.e2])
-    s_lr = trial.suggest_categorical('s_lr', [1.e-3, 1.e-2, 1.e-1])
+    s_lr = trial.suggest_categorical('s_lr', [1.e-3, 1.e-2])
     s_l2 = trial.suggest_categorical('s_l2', [1.e-2, 1.e-1, 1.])
     m_momentum = 0.05
     set_seed(2023)

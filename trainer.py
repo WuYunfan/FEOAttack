@@ -6,11 +6,11 @@ from torch.optim import Adam, SGD
 import time
 import numpy as np
 import os
-from utils import AverageMeter, generate_adj_mat
+from utils import AverageMeter, generate_adj_mat, vprint
 import torch.nn.functional as F
 import scipy.sparse as sp
 import optuna
-from utils import bce_loss, mse_loss, TorchSparseMat
+from utils import mse_loss, TorchSparseMat
 
 
 def get_trainer(config, model):
@@ -61,14 +61,7 @@ class BasicTrainer:
                                   .format(self.model.name, self.name, stage, metric, k)
                                   , metrics[metric][k], self.epoch)
 
-    def train(self, verbose=True, writer=None, extra_eval=None):
-        if not self.model.trainable:
-            results, metrics = self.eval('val')
-            if verbose:
-                print('Validation result. {:s}'.format(results))
-            ndcg = metrics['NDCG'][self.topks[0]]
-            return ndcg
-
+    def train(self, verbose=True, writer=None):
         self.dataset.negative_sample_ratio = self.negative_sample_ratio
         if not os.path.exists('checkpoints'): os.mkdir('checkpoints')
         patience = self.max_patience
@@ -78,20 +71,17 @@ class BasicTrainer:
             self.model.train()
             loss = self.train_one_epoch()
             consumed_time = time.time() - start_time
-            if verbose:
-                print('Epoch {:d}/{:d}, Loss: {:.6f}, Time: {:.3f}s'
-                      .format(self.epoch, self.n_epochs, loss, consumed_time))
+            vprint('Epoch {:d}/{:d}, Loss: {:.6f}, Time: {:.3f}s'.
+                   format(self.epoch, self.n_epochs, loss, consumed_time), verbose)
             if writer:
                 writer.add_scalar('{:s}_{:s}/train_loss'.format(self.model.name, self.name), loss, self.epoch)
-
             if (self.epoch + 1) % self.val_interval != 0:
                 continue
 
             start_time = time.time()
             results, metrics = self.eval('val')
             consumed_time = time.time() - start_time
-            if verbose:
-                print('Validation result. {:s}Time: {:.3f}s'.format(results, consumed_time))
+            vprint('Validation result. {:s}Time: {:.3f}s'.format(results, consumed_time), verbose)
             if writer:
                 self.record(writer, 'validation', metrics)
 
@@ -104,20 +94,15 @@ class BasicTrainer:
                 self.best_ndcg = ndcg
                 self.model.save(self.save_path)
                 patience = self.max_patience
-                if verbose:
-                    print('Best NDCG, save model to {:s}'.format(self.save_path))
+                vprint('Best NDCG, save model to {:s}'.format(self.save_path), verbose)
             else:
                 patience -= self.val_interval
-                if patience <= 0:
-                    print('Early stopping at epoch {:d}!'.format(self.epoch))
-                    break
-
-            if extra_eval:
-                extra_eval[0](self, extra_eval[1], writer, verbose)
+            if patience <= 0:
+                print('Early stopping at epoch {:d}!'.format(self.epoch))
 
         if self.save_path is not None:
             self.model.load(self.save_path)
-            print('Best NDCG {:.3f}'.format(self.best_ndcg), ', reload best model.')
+            print('Best NDCG {:.3f}'.format(self.best_ndcg), ', reload the best model.')
         train_consumed_time = time.time() - train_start_time
         print('Total consumed time of training {:.3f}s'.format(train_consumed_time))
         return self.best_ndcg
@@ -147,9 +132,9 @@ class BasicTrainer:
             idcgs = np.sum(max_hit_matrix[:, :k] / denominator[:, :k], axis=1)
             with np.errstate(invalid='ignore'):
                 ndcgs = dcgs / idcgs
-            hit_one = (hit_num > 1.e-3).astype(float)
+            hit_one = (hit_num > 0.5).astype(float)
 
-            user_masks = (eval_data_len > 1.e-3)
+            user_masks = (eval_data_len > 0.5)
             metrics['Precision'][k] = precisions[user_masks].mean()
             metrics['Recall'][k] = recalls[user_masks].mean()
             metrics['NDCG'][k] = ndcgs[user_masks].mean()
@@ -214,7 +199,7 @@ class BPRTrainer(BasicTrainer):
             users, pos_items, neg_items = inputs[:, 0], inputs[:, 1], inputs[:, 2]
 
             users_r, pos_items_r, neg_items_r, l2_norm_sq = \
-                self.model.bpr_forward(users, pos_items, neg_items, self.gp_config)
+                self.model.bpr_forward(users, pos_items, neg_items)
             pos_scores = torch.sum(users_r * pos_items_r, dim=1)
             neg_scores = torch.sum(users_r * neg_items_r, dim=1)
 
@@ -225,47 +210,6 @@ class BPRTrainer(BasicTrainer):
             self.opt.step()
             self.opt.zero_grad()
             losses.update(loss.item(), inputs.shape[0])
-        return losses.avg
-
-
-class BPRTrainerRecord(BPRTrainer):
-    def __init__(self, trainer_config):
-        super(BPRTrainerRecord, self).__init__(trainer_config)
-        self.pos_pairs = torch.tensor(np.array(self.dataset.train_array).T, dtype=torch.int64, device=self.device)
-        self.pos_pairs[1, :] += self.model.n_users
-        self.rand_pairs = torch.vstack([torch.randint(self.model.n_users, (self.pos_pairs.shape[1], )),
-                                        torch.randint(self.model.n_items, (self.pos_pairs.shape[1], )) + self.model.n_users])
-        self.rand_pairs.to(dtype=torch.int64, device=self.device)
-        self.records = []
-
-    def train_one_epoch(self):
-        losses = AverageMeter()
-        grad = torch.zeros_like(self.model.embedding.weight)
-        n_batches = 0
-        for batch_data in self.dataloader:
-            inputs = batch_data[:, 0, :].to(device=self.device, dtype=torch.int64)
-            users, pos_items, neg_items = inputs[:, 0], inputs[:, 1], inputs[:, 2]
-
-            users_r, pos_items_r, neg_items_r, l2_norm_sq = \
-                self.model.bpr_forward(users, pos_items, neg_items, self.gp_config)
-            pos_scores = torch.sum(users_r * pos_items_r, dim=1)
-            neg_scores = torch.sum(users_r * neg_items_r, dim=1)
-
-            bpr_loss = F.softplus(neg_scores - pos_scores).mean()
-            reg_loss = self.l2_reg * l2_norm_sq.mean()
-            loss = bpr_loss + reg_loss
-            loss.backward()
-            grad += self.model.embedding.weight.grad
-            n_batches += 1
-            self.opt.step()
-            self.opt.zero_grad()
-            losses.update(loss.item(), inputs.shape[0])
-        grad /= n_batches
-        grad = F.normalize(grad, p=2, dim=1)
-        pos_scores = torch.sum(grad[self.pos_pairs[0, :], :] * grad[self.pos_pairs[1, :], :], dim=1)
-        rand_scores = torch.sum(grad[self.rand_pairs[0, :], :] * grad[self.rand_pairs[1, :], :], dim=1)
-        record = torch.hstack([torch.mean(pos_scores), torch.std(pos_scores), torch.mean(rand_scores), torch.std(rand_scores)])
-        self.records.append(record.cpu().numpy())
         return losses.avg
 
 
@@ -289,7 +233,7 @@ class APRTrainer(BasicTrainer):
             users, pos_items, neg_items = inputs[:, 0], inputs[:, 1], inputs[:, 2]
 
             users_r, pos_items_r, neg_items_r, l2_norm_sq = \
-                self.model.bpr_forward(users, pos_items, neg_items, self.gp_config)
+                self.model.bpr_forward(users, pos_items, neg_items)
             pos_scores = torch.sum(users_r * pos_items_r, dim=1)
             neg_scores = torch.sum(users_r * neg_items_r, dim=1)
             bpr_loss = F.softplus(neg_scores - pos_scores).mean()
@@ -347,8 +291,7 @@ class BCETrainer(BasicTrainer):
             pos_users, pos_items = inputs[:, 0, 0], inputs[:, 0, 1]
             inputs = inputs.reshape(-1, 3)
             neg_users, neg_items = inputs[:, 0], inputs[:, 2]
-            pos_scores, neg_scores, l2_norm_sq = self.model.bce_forward(pos_users, pos_items,
-                                                                        neg_users, neg_items, self.gp_config)
+            pos_scores, neg_scores, l2_norm_sq = self.model.bce_forward(pos_users, pos_items, neg_users, neg_items,)
             bce_loss_p = F.softplus(-pos_scores)
             bce_loss_n = F.softplus(neg_scores)
 
@@ -424,7 +367,7 @@ class UserBatchTrainer(BasicTrainer):
         losses = AverageMeter()
         for users in self.train_user_loader:
             users = users[0]
-            scores, l2_norm_sq = self.model.forward(users, self.gp_config)
+            scores, l2_norm_sq = self.model.forward(users)
             profiles = data_tensor[users, :]
             rec_loss = self.loss(profiles, scores, self.weight)
 

@@ -39,7 +39,6 @@ class BasicModel(nn.Module):
         self.dataset = model_config['dataset']
         self.n_users = self.dataset.n_users + model_config.get('n_fakes', 0)
         self.n_items = self.dataset.n_items
-        self.trainable = True
 
     def save(self, path):
         torch.save(self.state_dict(), path)
@@ -53,7 +52,7 @@ class BasicModel(nn.Module):
     def initial_embeddings(self):
         normal_(self.embedding.weight, std=0.1)
 
-    def bpr_forward(self, users, pos_items, neg_items, gp_config):
+    def bpr_forward(self, users, pos_items, neg_items):
         rep = self.get_rep()
         users_r = rep[users, :]
         pos_items_r, neg_items_r = rep[self.n_users + pos_items, :], rep[self.n_users + neg_items, :]
@@ -61,7 +60,7 @@ class BasicModel(nn.Module):
                      + torch.norm(neg_items_r, p=2, dim=1) ** 2
         return users_r, pos_items_r, neg_items_r, l2_norm_sq
 
-    def bce_forward(self, pos_users, pos_items, neg_users, neg_items, gp_config):
+    def bce_forward(self, pos_users, pos_items, neg_users, neg_items):
         rep = self.get_rep()
         pos_users_r, pos_items_r = rep[pos_users, :], rep[self.n_users + pos_items, :]
         neg_users_r, neg_items_r = rep[neg_users, :], rep[self.n_users + neg_items, :]
@@ -73,7 +72,7 @@ class BasicModel(nn.Module):
         l2_norm_sq = torch.cat([pos_l2_norm_sq, neg_l2_norm_sq], dim=0)
         return pos_scores, neg_scores, l2_norm_sq
 
-    def forward(self, users, gp_config):
+    def forward(self, users):
         rep = self.get_rep()
         users_r = rep[users, :]
         all_items_r = rep[self.n_users:, :]
@@ -208,9 +207,6 @@ class MultiVAE(BasicModel):
 
     def predict(self, users):
         scores, _, _ = self.ml_forward(users)
-        if scores.shape[1] < self.n_items:
-            padding = torch.full([scores.shape[0], self.n_items - scores.shape[1]], -np.inf, device=self.device)
-            scores = torch.cat([scores, padding], dim=1)
         return scores
 
 
@@ -240,13 +236,13 @@ class NeuMF(BasicModel):
             zeros_(layer.bias)
         ones_(self.output_layer.weight)
 
-    def bce_forward(self, pos_users, pos_items, neg_users, neg_items, gp_config):
-        pos_scores, pos_l2_norm_sq = self.forward(pos_users, pos_items)
-        neg_scores, neg_l2_norm_sq = self.forward(neg_users, neg_items)
+    def bce_forward(self, pos_users, pos_items, neg_users, neg_items):
+        pos_scores, pos_l2_norm_sq = self.neu_forward(pos_users, pos_items)
+        neg_scores, neg_l2_norm_sq = self.neu_forward(neg_users, neg_items)
         l2_norm_sq = torch.cat([pos_l2_norm_sq, neg_l2_norm_sq], dim=0)
         return pos_scores, neg_scores, l2_norm_sq
 
-    def forward(self, users, items):
+    def neu_forward(self, users, items):
         users_mf_e, items_mf_e = self.mf_embedding(users), self.mf_embedding(self.n_users + items)
         users_mlp_e, items_mlp_e = self.mlp_embedding(users), self.mlp_embedding(self.n_users + items)
 
@@ -270,6 +266,6 @@ class NeuMF(BasicModel):
     def predict(self, users):
         items = torch.arange(self.n_items, dtype=torch.int64, device=self.device).repeat(users.shape[0])
         users = users[:, None].repeat(1, self.n_items).flatten()
-        scores, _ = self.forward(users, items)
+        scores, _ = self.neu_forward(users, items)
         scores = scores.reshape(-1, self.n_items)
         return scores

@@ -1,7 +1,7 @@
 import torch
 from torch.optim import Adam, SGD
 import numpy as np
-from utils import mse_loss, ce_loss
+from utils import mse_loss, ce_loss, vprint
 import torch.nn.functional as F
 import higher
 import time
@@ -35,7 +35,7 @@ class GradientAttacker(BasicAttacker):
         degree = torch.sum(data_tensor, dim=1)
         qualified_users = data_tensor[degree <= self.n_inters, :]
         sample_idxes = torch.randint(qualified_users.shape[0], size=[self.n_fakes])
-        fake_tensor = qualified_users[sample_idxes, :]
+        fake_tensor = torch.clone(qualified_users[sample_idxes, :])
         fake_tensor.requires_grad = True
         return fake_tensor
 
@@ -56,7 +56,9 @@ class GradientAttacker(BasicAttacker):
             adv_loss, hr, adv_grads = self.retrain_surrogate()
             if hr > max_hr:
                 print('Maximal hit ratio, save fake users.')
-                self.fake_users = self.fake_tensor.detach().cpu().numpy().copy()
+                for fake_u in range(self.n_fakes):
+                    items = torch.where(self.fake_tensor[fake_u, :] > 0.5)[0].cpu().numpy().tolist()
+                    self.fake_user_inters[fake_u] = items
                 max_hr = hr
 
             normalized_adv_grads = F.normalize(adv_grads, p=2, dim=1)
@@ -67,9 +69,8 @@ class GradientAttacker(BasicAttacker):
 
             consumed_time = time.time() - start_time
             self.consumed_time += consumed_time
-            if verbose:
-                print('Epoch {:d}/{:d}, Adv Loss: {:.3f}, Hit Ratio@{:d}: {:.3f}%, Time: {:.3f}s'.
-                      format(epoch, self.adv_epochs, adv_loss, self.topk, hr * 100., consumed_time))
+            vprint('Epoch {:d}/{:d}, Adv Loss: {:.3f}, Hit Ratio@{:d}: {:.3f}%, Time: {:.3f}s'.
+                   format(epoch, self.adv_epochs, adv_loss, self.topk, hr * 100., consumed_time), verbose)
             if writer:
                 writer.add_scalar('{:s}/Adv_Loss'.format(self.name), adv_loss, epoch)
                 writer.add_scalar('{:s}/Hit_Ratio@{:d}'.format(self.name, self.topk), hr, epoch)
@@ -85,20 +86,17 @@ class RevAdvAttacker(GradientAttacker):
         self.surrogate_trainer.initialize_optimizer()
         self.surrogate_trainer.merge_fake_tensor(self.fake_tensor)
 
-        start_time = time.time()
         self.surrogate_trainer.train(verbose=False)
         with higher.innerloop_ctx(self.surrogate_model, self.surrogate_trainer.opt) as (fmodel, diffopt):
             fmodel.train()
             for _ in range(self.unroll_steps):
                 for users in self.surrogate_trainer.train_user_loader:
                     users = users[0]
-                    scores, l2_norm_sq = fmodel.forward(users, self.surrogate_trainer.gp_config)
+                    scores, l2_norm_sq = fmodel.forward(users)
                     profiles = self.surrogate_trainer.merged_data_tensor[users, :]
-                    m_loss = mse_loss(profiles, scores, self.surrogate_trainer.weight)
-                    loss = m_loss + self.surrogate_trainer.l2_reg * l2_norm_sq.mean()
+                    rec_loss = self.surrogate_trainer.loss(profiles, scores, self.surrogate_trainer.weight)
+                    loss = rec_loss + self.surrogate_trainer.l2_reg * l2_norm_sq.mean()
                     diffopt.step(loss)
-            consumed_time = time.time() - start_time
-            self.retrain_time += consumed_time
 
             fmodel.eval()
             scores = fmodel.predict(self.target_user_tensor)

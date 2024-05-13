@@ -20,11 +20,10 @@ class BasicAttacker:
         self.target_items = np.array(attacker_config['target_items'])
         self.device = attacker_config['device']
         self.topk = attacker_config['topk']
-        self.fake_users = None
+        self.fake_user_inters = [[] for _ in range(self.n_fakes)]
         self.model = None
         self.trainer = None
         self.consumed_time = 0.
-        self.retrain_time = 0.
 
     def generate_fake_users(self, verbose=True, writer=None):
         raise NotImplementedError
@@ -38,7 +37,7 @@ class BasicAttacker:
                         self.dataset.attack_data[u].append(item)
 
             for fake_u in range(self.n_fakes):
-                items = np.where(self.fake_users[fake_u, :] > 0.5)[0].tolist()
+                items = self.fake_user_inters[fake_u]
                 assert len(items) <= self.n_inters
                 random.shuffle(items)
                 train_items = items[:self.n_train_inters]
@@ -68,7 +67,7 @@ class BasicAttacker:
             print('Attack result. {:s}'.format(results))
             print('Consumed time: {:.3f}s, retrain time: {:.3f}'.format(self.consumed_time, self.retrain_time))
 
-        recall = metrics['Recall'][self.trainer.topks[0]]
+        recall = metrics['Recall'][self.topk]
         return recall
 
 

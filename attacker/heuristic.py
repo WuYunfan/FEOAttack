@@ -10,11 +10,9 @@ class RandomAttacker(BasicAttacker):
         self.candidates = np.array(list(self.candidates))
 
     def generate_fake_users(self, verbose=True, writer=None):
-        self.fake_users = np.zeros([self.n_fakes, self.n_items], dtype=np.float32)
         for f_u in range(self.n_fakes):
             filler_items = np.random.choice(self.candidates, size=self.n_inters - self.target_items.shape[0], replace=False)
-            self.fake_users[f_u, filler_items] = 1.
-            self.fake_users[f_u, self.target_items] = 1.
+            self.fake_user_inters[f_u] = filler_items.tolist() + self.target_items.tolist()
 
 
 class BandwagonAttacker(BasicAttacker):
@@ -32,12 +30,9 @@ class BandwagonAttacker(BasicAttacker):
         self.unpopular_candidates = np.array(list(set(unpopular_items) - set(self.target_items)))
 
     def generate_fake_users(self, verbose=True, writer=None):
-        self.fake_users = np.zeros([self.n_fakes, self.n_items], dtype=np.float32)
         for f_u in range(self.n_fakes):
             selected_items = np.random.choice(self.popular_candidates, size=self.n_popular_inters, replace=False)
             filler_items = np.random.choice(self.unpopular_candidates,
                                             size=self.n_inters - self.n_popular_inters - self.target_items.shape[0],
                                             replace=False)
-            self.fake_users[f_u, selected_items] = 1.
-            self.fake_users[f_u, filler_items] = 1.
-            self.fake_users[f_u, self.target_items] = 1.
+            self.fake_user_inters[f_u] = selected_items.tolist() + filler_items.tolist() + self.target_items.tolist()

@@ -109,13 +109,9 @@ class LightGCN(BasicModel):
         self.embedding_size = model_config['embedding_size']
         self.n_layers = model_config['n_layers']
         self.embedding = nn.Embedding(self.n_users + self.n_items, self.embedding_size, dtype=torch.float32)
-        self.adj_mat = self.generate_graph(model_config['dataset'])
+        self.adj_mat = generate_adj_mat(model_config['dataset'].train_array, self)
         self.initial_embeddings()
         self.to(device=self.device)
-
-    def generate_graph(self, dataset):
-        adj_mat = generate_adj_mat(dataset.train_array, self)
-        return adj_mat
 
     def get_rep(self):
         representations = self.embedding.weight
@@ -139,6 +135,7 @@ class MultiVAE(BasicModel):
         self.d_layer_sizes = self.e_layer_sizes[::-1].copy()
         self.mid_size = self.e_layer_sizes[-1]
         self.e_layer_sizes[-1] = self.mid_size * 2
+
         self.encoder_layers = []
         self.decoder_layers = []
         for layer_idx in range(1, len(self.e_layer_sizes)):
@@ -148,12 +145,12 @@ class MultiVAE(BasicModel):
             self.decoder_layers.append(decoder_layer)
         self.encoder_layers = nn.ModuleList(self.encoder_layers)
         self.decoder_layers = nn.ModuleList(self.decoder_layers)
+        self.layers = self.encoder_layers + self.decoder_layers
         self.to(device=self.device)
 
     def get_data_mat(self, dataset):
         data_mat = sp.coo_matrix((np.ones((len(dataset.train_array),)), np.array(dataset.train_array).T),
                                  shape=(self.n_users, self.n_items), dtype=np.float32).tocsr()
-
         normalized_data_mat = normalize(data_mat, axis=1, norm='l2')
         return normalized_data_mat
 
@@ -176,7 +173,7 @@ class MultiVAE(BasicModel):
         indexes = np.stack([coo.row, coo.col], axis=0)
         indexes = torch.tensor(indexes, dtype=torch.int64, device=self.device)
         data = torch.tensor(coo.data, dtype=torch.float32, device=self.device)
-        sp_tensor = torch.sparse.FloatTensor(indexes, data, torch.Size(coo.shape)).coalesce()
+        sp_tensor = torch.sparse.FloatTensor(indexes, data, coo.shape).coalesce()
         return sp_tensor
 
     def ml_forward(self, users):
@@ -187,10 +184,8 @@ class MultiVAE(BasicModel):
         representations = self.dropout_sp_mat(representations)
         representations = torch.sparse.mm(representations, self.encoder_layers[0].weight.t())
         representations = representations + self.encoder_layers[0].bias[None, :]
-        l2_norm_sq = torch.norm(self.encoder_layers[0].weight, p=2)[None] ** 2
         for layer in self.encoder_layers[1:]:
             representations = layer(torch.tanh(representations))
-            l2_norm_sq = l2_norm_sq + torch.norm(layer.weight, p=2)[None] ** 2
 
         mean, log_var = representations[:, :self.mid_size], representations[:, -self.mid_size:]
         std = torch.exp(0.5 * log_var)
@@ -200,9 +195,9 @@ class MultiVAE(BasicModel):
 
         for layer in self.decoder_layers[:-1]:
             representations = torch.tanh(layer(representations))
-            l2_norm_sq = l2_norm_sq + torch.norm(layer.weight, p=2)[None] ** 2
         scores = self.decoder_layers[-1](representations)
-        l2_norm_sq = l2_norm_sq + torch.norm(self.decoder_layers[-1].weight, p=2)[None] ** 2
+
+        l2_norm_sq = sum(torch.norm(layer.weight, p=2)[None] ** 2 for layer in self.layers)
         return scores, kl, l2_norm_sq
 
     def predict(self, users):

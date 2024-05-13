@@ -37,7 +37,6 @@ class BasicTrainer:
         self.negative_sample_ratio = trainer_config.get('neg_ratio', 1)
         self.max_patience = trainer_config.get('max_patience', 100)
         self.val_interval = trainer_config.get('val_interval', 1)
-        self.epoch = 0
         self.best_ndcg = -np.inf
         self.save_path = None
         self.opt = None
@@ -49,33 +48,31 @@ class BasicTrainer:
         opt = getattr(sys.modules[__name__], self.config['optimizer'])
         self.opt = opt(self.model.parameters(), lr=self.config['lr'])
 
-    def train_one_epoch(self):
+    def train_one_epoch(self, epoch):
         raise NotImplementedError
 
-    def record(self, writer, stage, metrics, topks=None):
-        if topks is None:
-            topks = self.topks
+    def record(self, writer, stage, metrics, epoch):
         for metric in metrics:
-            for k in topks:
+            for k in self.topks:
                 writer.add_scalar('{:s}_{:s}/{:s}_{:s}@{:d}'
                                   .format(self.model.name, self.name, stage, metric, k)
-                                  , metrics[metric][k], self.epoch)
+                                  , metrics[metric][k], epoch)
 
     def train(self, verbose=True, writer=None):
         self.dataset.negative_sample_ratio = self.negative_sample_ratio
         if not os.path.exists('checkpoints'): os.mkdir('checkpoints')
         patience = self.max_patience
         train_start_time = time.time()
-        for self.epoch in range(self.n_epochs):
+        for epoch in range(self.n_epochs):
             start_time = time.time()
             self.model.train()
-            loss = self.train_one_epoch()
+            loss = self.train_one_epoch(epoch)
             consumed_time = time.time() - start_time
             vprint('Epoch {:d}/{:d}, Loss: {:.6f}, Time: {:.3f}s'.
-                   format(self.epoch, self.n_epochs, loss, consumed_time), verbose)
+                   format(epoch, self.n_epochs, loss, consumed_time), verbose)
             if writer:
-                writer.add_scalar('{:s}_{:s}/train_loss'.format(self.model.name, self.name), loss, self.epoch)
-            if (self.epoch + 1) % self.val_interval != 0:
+                writer.add_scalar('{:s}_{:s}/train_loss'.format(self.model.name, self.name), loss, epoch)
+            if (epoch + 1) % self.val_interval != 0:
                 continue
 
             start_time = time.time()
@@ -83,7 +80,7 @@ class BasicTrainer:
             consumed_time = time.time() - start_time
             vprint('Validation result. {:s}Time: {:.3f}s'.format(results, consumed_time), verbose)
             if writer:
-                self.record(writer, 'validation', metrics)
+                self.record(writer, 'validation', metrics, epoch)
 
             ndcg = metrics['NDCG'][self.topks[0]]
             if ndcg > self.best_ndcg:
@@ -98,7 +95,8 @@ class BasicTrainer:
             else:
                 patience -= self.val_interval
             if patience <= 0:
-                print('Early stopping at epoch {:d}!'.format(self.epoch))
+                print('Early stopping at epoch {:d}!'.format(epoch))
+                break
 
         if self.save_path is not None:
             self.model.load(self.save_path)
@@ -192,7 +190,7 @@ class BPRTrainer(BasicTrainer):
         self.initialize_optimizer()
         self.l2_reg = trainer_config['l2_reg']
 
-    def train_one_epoch(self):
+    def train_one_epoch(self, epoch):
         losses = AverageMeter()
         for batch_data in self.dataloader:
             inputs = batch_data[:, 0, :].to(device=self.device, dtype=torch.int64)
@@ -226,7 +224,7 @@ class APRTrainer(BasicTrainer):
         self.eps = trainer_config['eps']
         self.model.load(trainer_config['ckpt_path'])
 
-    def train_one_epoch(self):
+    def train_one_epoch(self, epoch):
         losses = AverageMeter()
         for batch_data in self.dataloader:
             inputs = batch_data[:, 0, :].to(device=self.device, dtype=torch.int64)
@@ -269,22 +267,22 @@ class BCETrainer(BasicTrainer):
             self.mf_pretrain_epochs = trainer_config['mf_pretrain_epochs']
             self.mlp_pretrain_epochs = trainer_config['mlp_pretrain_epochs']
 
-    def change_arch(self):
-        if self.epoch == self.mf_pretrain_epochs and self.model.arch == 'gmf':
+    def change_arch(self, epoch):
+        if epoch == self.mf_pretrain_epochs and self.model.arch == 'gmf':
             self.model.arch = 'mlp'
             self.initialize_optimizer()
             self.best_ndcg = -np.inf
             self.model.load(self.save_path)
-        if self.epoch == self.mf_pretrain_epochs + self.mlp_pretrain_epochs and self.model.arch == 'mlp':
+        if epoch == self.mf_pretrain_epochs + self.mlp_pretrain_epochs and self.model.arch == 'mlp':
             self.model.arch = 'neumf'
             self.initialize_optimizer()
             self.best_ndcg = -np.inf
             self.model.load(self.save_path)
             self.model.init_mlp_layers()
 
-    def train_one_epoch(self):
+    def train_one_epoch(self, epoch):
         if self.model.name == 'NeuMF':
-            self.change_arch()
+            self.change_arch(epoch)
         losses = AverageMeter()
         for batch_data in self.dataloader:
             inputs = batch_data.to(device=self.device, dtype=torch.int64)
@@ -317,8 +315,8 @@ class MLTrainer(BasicTrainer):
         self.l2_reg = trainer_config['l2_reg']
         self.kl_reg = trainer_config['kl_reg']
 
-    def train_one_epoch(self):
-        kl_reg = min(self.kl_reg, 1. * self.epoch / self.n_epochs)
+    def train_one_epoch(self, epoch):
+        kl_reg = min(self.kl_reg, 1. * epoch / self.n_epochs)
 
         losses = AverageMeter()
         for users in self.train_user_loader:
@@ -358,7 +356,7 @@ class UserBatchTrainer(BasicTrainer):
     def merge_fake_tensor(self, fake_tensor):
         self.merged_data_tensor = torch.cat([self.data_tensor, fake_tensor], dim=0)
 
-    def train_one_epoch(self):
+    def train_one_epoch(self, epoch):
         if self.merged_data_tensor is None:
             data_tensor = self.data_tensor
         else:

@@ -65,7 +65,7 @@ class BasicAttacker:
             results = 'Recall: {:s}NDCG: {:s}Hit One: {:s}'.format(recall, ndcg, hit_one)
             print('Target Items: {:s}'.format(str(self.target_items)))
             print('Attack result. {:s}'.format(results))
-            print('Consumed time: {:.3f}s, retrain time: {:.3f}'.format(self.consumed_time, self.retrain_time))
+            print('Consumed time: {:.3f}s'.format(self.consumed_time))
 
         recall = metrics['Recall'][self.topk]
         return recall

@@ -134,7 +134,7 @@ def random_retain_k(x, k):
 
 def bce_loss(profiles, scores, weight):
     n_profiles = 1. - profiles
-    n_profiles = random_retain_k(n_profiles, torch.round(profiles.sum() * weight))
+    n_profiles = random_retain_k(n_profiles, torch.round(profiles.sum() * weight).int())
     loss_p = (F.softplus(-scores) * profiles).sum()
     loss_n = (F.softplus(scores) * n_profiles).sum()
     loss = (loss_p + loss_n) / (profiles.sum() + n_profiles.sum())

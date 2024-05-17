@@ -13,7 +13,7 @@ import numpy as np
 
 
 def objective(trial):
-    lmd = trial.suggest_categorical('lmd', [1.e-1, 1.])
+    lmd = trial.suggest_categorical('lmd', [1.e-2, 1.e-1])
     s_l2 = trial.suggest_categorical('s_l2', [1.e-3, 1.e-2, 1.e-1])
     s_lr = trial.suggest_categorical('s_lr', [1.e-3, 1.e-2])
     lr = trial.suggest_categorical('lr', [1.e-3, 1.e-2])
@@ -26,7 +26,7 @@ def objective(trial):
                                 'test_batch_size': 2048, 'topks': [50], 'neg_ratio': 4, 'verbose': False}
     attacker_config = {'name': 'OptAttacker', 'n_fakes': 131, 'topk': 50,
                        'n_inters': 41, 'lmd1': lmd, 'lmd2': lmd, 'tau': 0.2,
-                       'step': 10, 'n_rounds': 10, 'n_fake_epochs': 10, 'lr': lr, 'weight_decay': 1.e-3,
+                       'step': 10, 'n_rounds': 5, 'n_fake_epochs': 10, 'lr': lr, 'weight_decay': 1.e-3,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
 

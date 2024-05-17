@@ -67,7 +67,7 @@ class OptAttacker(BasicAttacker):
         adv_opt.zero_grad()
         loss.backward()
         surrogate_trainer.opt.step()
-        # adv_opt.step()
+        adv_opt.step()
         return loss.item()
 
     def poison_train(self, surrogate_model, surrogate_trainer, pre_scores):

@@ -7,7 +7,6 @@ import torch.nn.functional as F
 import dgl
 import gc
 import random
-from dataset import BiasedSampledDataset
 import types
 from functools import partial
 
@@ -141,3 +140,37 @@ def ce_loss(scores, target_item_tensor):
 def vprint(content, verbose):
     if verbose:
         print(content)
+
+
+def get_target_hr(surrogate_model, target_user_loader, target_item_tensor, topk):
+    surrogate_model.eval()
+    with torch.no_grad():
+        hrs = AverageMeter()
+        for users in target_user_loader:
+            users = users[0]
+            scores = surrogate_model.predict(users)
+            _, topk_items = scores.topk(topk, dim=1)
+            hr = torch.eq(topk_items.unsqueeze(2), target_item_tensor.unsqueeze(0).unsqueeze(0))
+            hr = hr.float().sum(dim=1).mean()
+            hrs.update(hr.item(), users.shape[0])
+    return hrs.avg
+
+
+def dada_loss(scores, pre_scores, b1, b2, lmd1, lmd2):
+    dict_loss = torch.log(1. - torch.sigmoid(scores) * b1)
+    diff = scores - pre_scores
+    div_loss = -torch.sigmoid(b2 * (diff - diff.min(dim=0)[None, :]))
+    loss = dict_loss * lmd1 + div_loss * lmd2
+    return loss
+
+
+def gumbel_topk(logits, topk, tau):
+    k_hot = []
+    for _ in range(topk):
+        one_hot = F.gumbel_softmax(logits, tau=tau, hard=False, dim=-1)
+        k_hot.append(one_hot)
+        max_indexes = torch.argmax(one_hot, dim=-1)
+        mask = torch.zeros_like(logits).scatter(1, max_indexes[:, None], -np.inf)
+        logits = logits + mask
+    k_hot = torch.stack(k_hot, dim=0).sum(dim=0)
+    return k_hot

@@ -6,7 +6,7 @@ from attacker.basic_attacker import BasicAttacker
 import numpy as np
 from model import get_model
 from trainer import get_trainer
-from utils import AverageMeter, topk_loss, vprint
+from utils import AverageMeter, topk_loss, vprint, get_target_hr
 import torch.nn.functional as F
 import time
 import os
@@ -31,19 +31,6 @@ class DPA2DLAttacker(BasicAttacker):
         target_users = TensorDataset(torch.arange(self.n_users, dtype=torch.int64, device=self.device))
         self.target_user_loader = DataLoader(target_users, batch_size=self.surrogate_trainer_config['test_batch_size'],
                                              shuffle=True)
-
-    def get_target_hr(self, surrogate_model):
-        surrogate_model.eval()
-        with torch.no_grad():
-            hrs = AverageMeter()
-            for users in self.target_user_loader:
-                users = users[0]
-                scores = surrogate_model.predict(users)
-                _, topk_items = scores.topk(self.topk, dim=1)
-                hr = torch.eq(topk_items.unsqueeze(2), self.target_item_tensor.unsqueeze(0).unsqueeze(0))
-                hr = hr.float().sum(dim=1).mean()
-                hrs.update(hr.item(), users.shape[0])
-        return hrs.avg
 
     def poison_train(self, surrogate_model, surrogate_trainer, temp_fake_user_tensor):
         losses = AverageMeter()
@@ -70,9 +57,9 @@ class DPA2DLAttacker(BasicAttacker):
         with torch.no_grad():
             scores = surrogate_model.predict(temp_fake_user_tensor)
         for u_idx in range(temp_fake_user_tensor.shape[0]):
-            row_score = torch.sigmoid(scores[u_idx, :]) * prob
-            row_score[self.target_item_tensor] = 0.
-            filler_items = row_score.topk(self.n_inters - self.target_items.shape[0]).indices
+            item_score = torch.sigmoid(scores[u_idx, :]) * prob
+            item_score[self.target_item_tensor] = 0.
+            filler_items = item_score.topk(self.n_inters - self.target_items.shape[0]).indices
             prob[torch.cat([filler_items, self.target_item_tensor], dim=0)] *= self.prob
             if (prob < 1.0).all():
                 prob[:] = 1.
@@ -106,13 +93,13 @@ class DPA2DLAttacker(BasicAttacker):
             surrogate_trainer.train(verbose=verbose)
             os.remove(surrogate_trainer.save_path)
 
-            target_hr = self.get_target_hr(surrogate_model)
+            target_hr = get_target_hr(surrogate_model, self.target_user_loader, self.target_item_tensor, self.topk)
             print('Initial target HR: {:.4f}'.format(target_hr))
             for i_round in range(self.n_rounds):
                 surrogate_model.train()
                 p_loss = self.poison_train(surrogate_model, surrogate_trainer, temp_fake_user_tensor)
                 t_loss = surrogate_trainer.train_one_epoch()
-                target_hr = self.get_target_hr(surrogate_model)
+                target_hr = get_target_hr(surrogate_model, self.target_user_loader, self.target_item_tensor, self.topk)
                 vprint('Round {:d}/{:d}, Poison Loss: {:.6f}, Train Loss: {:.6f}, Target Hit Ratio {:.6f}%'.
                        format(i_round, self.n_rounds, p_loss, t_loss, target_hr * 100.), verbose)
                 if writer:

@@ -24,10 +24,10 @@ class OptAttacker(BasicAttacker):
         self.b2 = attacker_config.get('b2', 1.)
         self.lmd1 = attacker_config['lmd1']
         self.lmd2 = attacker_config['lmd2']
-        self.alpha = attacker_config['alpha']
         self.tau = attacker_config.get('tau', 1.)
         self.step = attacker_config['step']
         self.n_rounds = attacker_config['n_rounds']
+        self.n_fake_epochs = attacker_config['n_fake_epochs']
         self.lr = attacker_config['lr']
         self.weight_decay = attacker_config['weight_decay']
 
@@ -60,14 +60,14 @@ class OptAttacker(BasicAttacker):
     def fake_train(self, surrogate_model, surrogate_trainer, fake_tensor, adv_opt, temp_fake_user_tensor):
         fake_tensor_topk = gumbel_topk(fake_tensor, self.n_inters, self.tau)
         scores, l2_norm_sq = surrogate_model.forward(temp_fake_user_tensor)
-        b_loss = bce_loss(fake_tensor_topk, scores, 1.)
+        b_loss = bce_loss(fake_tensor_topk, scores, surrogate_trainer.negative_sample_ratio)
         reg_loss = surrogate_trainer.l2_reg * l2_norm_sq.mean()
-        loss = self.alpha * b_loss + reg_loss
+        loss = b_loss + reg_loss
         surrogate_trainer.opt.zero_grad()
         adv_opt.zero_grad()
         loss.backward()
         surrogate_trainer.opt.step()
-        adv_opt.step()
+        # adv_opt.step()
         return loss.item()
 
     def poison_train(self, surrogate_model, surrogate_trainer, pre_scores):
@@ -117,10 +117,13 @@ class OptAttacker(BasicAttacker):
 
             for i_round in range(self.n_rounds):
                 surrogate_model.train()
-                tn_loss = surrogate_trainer.train_one_epoch()
+                tn_loss = surrogate_trainer.train_one_epoch(None)
                 with torch.no_grad():
                     pre_scores = self.get_target_item_scores(surrogate_model)
-                tf_loss = self.fake_train(surrogate_model, surrogate_trainer, fake_tensor, adv_opt, temp_fake_user_tensor)
+                for f_epcoh in range(self.n_fake_epochs):
+                    tf_loss = self.fake_train(surrogate_model, surrogate_trainer, fake_tensor, adv_opt, temp_fake_user_tensor)
+                    vprint('Fake Epoch {:d}/{:d}, Train Loss Fake: {:.6f}'.
+                           format(f_epcoh, self.n_fake_epochs, tf_loss), verbose)
                 p_loss = self.poison_train(surrogate_model, surrogate_trainer, pre_scores)
 
                 target_hr = get_target_hr(surrogate_model, self.target_user_loader, self.target_item_tensor, self.topk)

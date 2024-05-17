@@ -98,7 +98,7 @@ class DPA2DLAttacker(BasicAttacker):
             for i_round in range(self.n_rounds):
                 surrogate_model.train()
                 p_loss = self.poison_train(surrogate_model, surrogate_trainer, temp_fake_user_tensor)
-                t_loss = surrogate_trainer.train_one_epoch()
+                t_loss = surrogate_trainer.train_one_epoch(None)
                 target_hr = get_target_hr(surrogate_model, self.target_user_loader, self.target_item_tensor, self.topk)
                 vprint('Round {:d}/{:d}, Poison Loss: {:.6f}, Train Loss: {:.6f}, Target Hit Ratio {:.6f}%'.
                        format(i_round, self.n_rounds, p_loss, t_loss, target_hr * 100.), verbose)

@@ -19,7 +19,7 @@ def objective(trial):
     m_momentum = 0.05
     set_seed(2023)
     device = torch.device('cuda')
-    dataset_config, model_config, trainer_config = get_config(device)[-2]
+    dataset_config, model_config, trainer_config = get_config(device)[-1]
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
     surrogate_trainer_config = {'name': 'UserBatchTrainer', 'optimizer': 'Adam', 'lr': s_lr, 'l2_reg': s_l2,
                                 'n_epochs': 45, 'batch_size': 2048, 'loss_function': 'mse_loss', 'weight': 20.,

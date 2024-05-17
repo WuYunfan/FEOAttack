@@ -20,16 +20,16 @@ class OptAttacker(BasicAttacker):
         self.surrogate_model_config = attacker_config['surrogate_model_config']
         self.surrogate_trainer_config = attacker_config['surrogate_trainer_config']
 
-        self.prob = attacker_config['prob']
         self.b1 = attacker_config.get('b1', 1.)
-        self.b2 = attacker_config('b2', 1.)
+        self.b2 = attacker_config.get('b2', 1.)
         self.lmd1 = attacker_config['lmd1']
         self.lmd2 = attacker_config['lmd2']
-        self.step = attacker_config['step']
         self.alpha = attacker_config['alpha']
-        self.tau = attacker_config['tau']
+        self.tau = attacker_config.get('tau', 1.)
+        self.step = attacker_config['step']
         self.n_rounds = attacker_config['n_rounds']
         self.lr = attacker_config['lr']
+        self.weight_decay = attacker_config['weight_decay']
 
         self.candidate_mat = self.construct_candidates()
         self.target_item_tensor = torch.tensor(self.target_items, dtype=torch.int64, device=self.device)
@@ -84,13 +84,11 @@ class OptAttacker(BasicAttacker):
         fake_tensor.requires_grad = True
         return fake_tensor
 
-    def choose_filler_items(self, fake_tensor, temp_fake_user_tensor, prob):
+    def choose_filler_items(self, fake_tensor, temp_fake_user_tensor):
         with torch.no_grad():
             fake_tensor_topk = gumbel_topk(fake_tensor, self.n_inters, self.tau)
         for u_idx in range(temp_fake_user_tensor.shape[0]):
-            item_score = fake_tensor_topk * prob
-            filler_items = item_score.topk(self.n_inters).indices
-            prob[filler_items] *= self.prob
+            filler_items = fake_tensor_topk[u_idx, :].topk(self.n_inters).indices
 
             f_u = temp_fake_user_tensor[u_idx]
             filler_items = filler_items.cpu().numpy().tolist()
@@ -102,7 +100,6 @@ class OptAttacker(BasicAttacker):
 
     def generate_fake_users(self, verbose=True, writer=None):
         start_time = time.time()
-        prob = torch.ones(self.n_items, dtype=torch.float32, device=self.device)
         fake_user_end_indices = list(np.arange(0, self.n_fakes, self.step, dtype=np.int64)) + [self.n_fakes]
         for i_step in range(1, len(fake_user_end_indices)):
             fake_nums_str = '{}-{}'.format(fake_user_end_indices[i_step - 1], fake_user_end_indices[i_step])
@@ -116,7 +113,7 @@ class OptAttacker(BasicAttacker):
             surrogate_model = get_model(self.surrogate_model_config, self.dataset)
             surrogate_trainer = get_trainer(self.surrogate_trainer_config, surrogate_model)
             fake_tensor = self.init_fake_tensor(n_temp_fakes)
-            adv_opt = Adam([fake_tensor], lr=self.lr)
+            adv_opt = Adam([fake_tensor], lr=self.lr, weight_decay=self.weight_decay)
 
             for i_round in range(self.n_rounds):
                 surrogate_model.train()
@@ -136,7 +133,7 @@ class OptAttacker(BasicAttacker):
                     writer.add_scalar('{:s}_{:s}/Train_Loss_Fake'.format(self.name, fake_nums_str), tf_loss, i_round)
                     writer.add_scalar('{:s}_{:s}/Hit_Ratio@{:d}'.format(self.name, fake_nums_str, self.topk),
                                       target_hr, i_round)
-            self.choose_filler_items(fake_tensor, temp_fake_user_tensor, prob)
+            self.choose_filler_items(fake_tensor, temp_fake_user_tensor)
             print('Poison #{:s} has been generated!'.format(fake_nums_str))
             gc.collect()
             torch.cuda.empty_cache()

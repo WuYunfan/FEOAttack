@@ -164,8 +164,7 @@ def get_target_hr(surrogate_model, target_user_loader, target_item_tensor, topk)
 
 
 def opt_loss(target_scores, top_scores, target_hr):
-    loss = -F.logsigmoid(target_scores - top_scores)
-    loss = -torch.relu(loss)
+    loss = -F.softplus(torch.relu(top_scores - target_scores))
     n_target_users = int(target_hr * loss.shape[0])
     bottom_loss, _ = loss.topk(n_target_users, dim=0)
     bottom_loss = -bottom_loss

@@ -25,8 +25,8 @@ def objective(trial):
                                 'n_epochs': 0, 'batch_size': 2 ** 12, 'dataloader_num_workers': 6,
                                 'test_batch_size': 2048, 'topks': [50], 'neg_ratio': 4, 'verbose': False}
     attacker_config = {'name': 'OptAttacker', 'n_fakes': 131, 'topk': 50,
-                       'n_inters': 41, 'alpha': alpha, 'tau': 0.2, 'target_hr': 0.01,
-                       'step': 10, 'n_rounds': 100, 'lr': lr, 'weight_decay': 1.e-3,
+                       'n_inters': 41, 'alpha': alpha, 'tau': 0.2, 'init_hr': 0.005, 'hr_gain': 0.01,
+                       'step': 100, 'n_rounds': 200, 'lr': lr, 'weight_decay': 1.e-3,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
 

@@ -204,9 +204,9 @@ class BPRTrainer(BasicTrainer):
             bpr_loss = F.softplus(neg_scores - pos_scores).mean()
             reg_loss = self.l2_reg * l2_norm_sq.mean()
             loss = bpr_loss + reg_loss
+            self.opt.zero_grad()
             loss.backward()
             self.opt.step()
-            self.opt.zero_grad()
             losses.update(loss.item(), inputs.shape[0])
         return losses.avg
 
@@ -289,16 +289,16 @@ class BCETrainer(BasicTrainer):
             pos_users, pos_items = inputs[:, 0, 0], inputs[:, 0, 1]
             inputs = inputs.reshape(-1, 3)
             neg_users, neg_items = inputs[:, 0], inputs[:, 2]
-            pos_scores, neg_scores, l2_norm_sq = self.model.bce_forward(pos_users, pos_items, neg_users, neg_items,)
+            pos_scores, neg_scores, l2_norm_sq = self.model.bce_forward(pos_users, pos_items, neg_users, neg_items)
             bce_loss_p = F.softplus(-pos_scores)
             bce_loss_n = F.softplus(neg_scores)
 
             bce_loss = torch.cat([bce_loss_p, bce_loss_n], dim=0).mean()
             reg_loss = self.l2_reg * l2_norm_sq.mean()
             loss = bce_loss + reg_loss
+            self.opt.zero_grad()
             loss.backward()
             self.opt.step()
-            self.opt.zero_grad()
             losses.update(loss.item(), l2_norm_sq.shape[0])
         return losses.avg
 

@@ -9,6 +9,7 @@ import gc
 import random
 import types
 from functools import partial
+from torch.utils.data import Dataset
 
 
 def set_seed(seed=0):
@@ -124,21 +125,6 @@ def mse_loss(profiles, scores, weight):
     return loss
 
 
-def sample_k(x, k):
-    m_dis = torch.distributions.Multinomial(k, x.view(-1))
-    sampled_x = x * torch.reshape(m_dis.sample(), x.shape)
-    return sampled_x
-
-
-def bce_loss(profiles, scores, weight):
-    n_profiles = 1. - profiles
-    n_profiles = sample_k(n_profiles, torch.round(profiles.sum() * weight).int())
-    loss_p = (F.softplus(-scores) * profiles).sum()
-    loss_n = (F.softplus(scores) * n_profiles).sum()
-    loss = (loss_p + loss_n) / (profiles.sum() + n_profiles.sum())
-    return loss
-
-
 def ce_loss(scores, target_item_tensor):
     log_probs = F.log_softmax(scores, dim=1)
     return -log_probs[:, target_item_tensor].mean()
@@ -165,8 +151,8 @@ def get_target_hr(surrogate_model, target_user_loader, target_item_tensor, topk)
 
 def opt_loss(target_scores, top_scores, target_hr):
     loss = -F.softplus(torch.relu(top_scores - target_scores))
-    n_target_users = int(target_hr * loss.shape[0])
-    bottom_loss, _ = loss.topk(n_target_users, dim=0)
+    n_target_users = int(target_hr * loss.shape[0] * loss.shape[1])
+    bottom_loss, _ = loss.reshape(-1).topk(n_target_users)
     bottom_loss = -bottom_loss
     return bottom_loss
 
@@ -181,3 +167,27 @@ def gumbel_topk(logits, topk, tau):
         logits = logits + mask
     k_hot = torch.stack(k_hot, dim=0).sum(dim=0)
     return k_hot
+
+
+class AttackDataset(Dataset):
+    def __init__(self, profiles, n_profiles, length, negative_sample_ratio):
+        self.profiles = profiles.detach().cpu().numpy()
+        self.profiles = self.profiles / np.sum(self.profiles, axis=1)[:, None]
+        self.n_profiles = n_profiles.detach().cpu().numpy()
+        self.n_profiles = self.n_profiles / np.sum(self.n_profiles, axis=1)[:, None]
+        self.length = length
+        self.negative_sample_ratio = negative_sample_ratio
+        self.n_fakes = profiles.shape[0]
+        self.n_items = profiles.shape[1]
+
+    def __len__(self):
+        return self.length
+
+    def __getitem__(self, index):
+        fake_u = random.randint(0, self.n_fakes - 1)
+        pos_item = np.random.choice(self.n_items, p=self.profiles[fake_u])
+        data_with_negs = np.ones((self.negative_sample_ratio, 3), dtype=np.int64)
+        data_with_negs[:, 0] = fake_u
+        data_with_negs[:, 1] = pos_item
+        data_with_negs[:, 2] = np.random.choice(self.n_items, size=self.negative_sample_ratio, p=self.profiles[fake_u])
+        return data_with_negs

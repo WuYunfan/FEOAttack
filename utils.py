@@ -124,17 +124,15 @@ def mse_loss(profiles, scores, weight):
     return loss
 
 
-def random_retain_k(x, k):
-    mask = torch.zeros_like(x)
-    indices = torch.randperm(x.numel())[:k]
-    mask.view(-1)[indices] = 1.
-    retrained_x = x * mask
-    return retrained_x
+def sample_k(x, k):
+    m_dis = torch.distributions.Multinomial(k, x.view(-1))
+    sampled_x = x * torch.reshape(m_dis.sample(), x.shape)
+    return sampled_x
 
 
 def bce_loss(profiles, scores, weight):
     n_profiles = 1. - profiles
-    n_profiles = random_retain_k(n_profiles, torch.round(profiles.sum() * weight).int())
+    n_profiles = sample_k(n_profiles, torch.round(profiles.sum() * weight).int())
     loss_p = (F.softplus(-scores) * profiles).sum()
     loss_n = (F.softplus(scores) * n_profiles).sum()
     loss = (loss_p + loss_n) / (profiles.sum() + n_profiles.sum())
@@ -165,13 +163,13 @@ def get_target_hr(surrogate_model, target_user_loader, target_item_tensor, topk)
     return hrs.avg
 
 
-def dada_loss(scores, pre_scores, b1, b2, lmd1, lmd2):
-    dict_loss = torch.log(1. - torch.sigmoid(scores) * b1 + 1.e-10)
-    diff = scores - pre_scores
-    min_diff = torch.min(diff.detach(), dim=0).values[None, :]
-    div_loss = -torch.sigmoid(b2 * (diff - min_diff))
-    loss = dict_loss * lmd1 + div_loss * lmd2
-    return loss
+def opt_loss(target_scores, top_scores, target_hr):
+    loss = -F.logsigmoid(target_scores - top_scores)
+    loss = -torch.relu(loss)
+    n_target_users = int(target_hr * loss.shape[0])
+    bottom_loss, _ = loss.topk(n_target_users, dim=0)
+    bottom_loss = -bottom_loss
+    return bottom_loss
 
 
 def gumbel_topk(logits, topk, tau):

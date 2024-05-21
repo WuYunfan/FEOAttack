@@ -6,7 +6,7 @@ from attacker.basic_attacker import BasicAttacker
 import numpy as np
 from model import get_model
 from trainer import get_trainer
-from utils import AverageMeter, vprint, get_target_hr, opt_loss, gumbel_topk, AttackDataset
+from utils import AverageMeter, vprint, get_target_hr, opt_loss, AttackDataset, bce_loss
 import torch.nn.functional as F
 import time
 import os
@@ -23,11 +23,11 @@ class OptAttacker(BasicAttacker):
         self.alpha = attacker_config['alpha']
         self.init_hr = attacker_config['init_hr']
         self.hr_gain = attacker_config['hr_gain']
-        self.tau = attacker_config.get('tau', 1.)
         self.step = attacker_config['step']
         self.n_rounds = attacker_config['n_rounds']
         self.lr = attacker_config['lr']
         self.weight_decay = attacker_config['weight_decay']
+        self.n_fake_epochs = attacker_config['n_fake_epochs']
 
         self.candidate_mat = self.construct_candidates()
         self.target_item_tensor = torch.tensor(self.target_items, dtype=torch.int64, device=self.device)
@@ -59,10 +59,10 @@ class OptAttacker(BasicAttacker):
         top_scores = torch.cat(top_scores, dim=0)
         return target_scores, top_scores
 
-    def fake_train(self, surrogate_model, surrogate_trainer, fake_tensor, adv_opt, n_temp_fakes, rec_or_fake):
-        profiles = gumbel_topk(fake_tensor, self.n_inters, self.tau)
+    def fake_train(self, surrogate_model, surrogate_trainer, fake_tensor):
+        profiles = F.softmax(fake_tensor, dim=-1)
         n_profiles = 1. - profiles
-        dataset = AttackDataset(profiles, n_profiles, n_temp_fakes * self.n_inters, surrogate_trainer.negative_sample_ratio)
+        dataset = AttackDataset(profiles, n_profiles, fake_tensor.shape[0] * self.n_inters, surrogate_trainer.negative_sample_ratio)
         dataloader = DataLoader(dataset, batch_size=surrogate_trainer.dataloader.batch_size,
                                 num_workers=surrogate_trainer.dataloader.num_workers,
                                 persistent_workers=False, pin_memory=False)
@@ -72,7 +72,7 @@ class OptAttacker(BasicAttacker):
             pos_users, pos_items = inputs[:, 0, 0], inputs[:, 0, 1]
             inputs = inputs.reshape(-1, 3)
             neg_users, neg_items = inputs[:, 0], inputs[:, 2]
-            pos_scores, neg_scores, l2_norm_sq = self.model.bce_forward(pos_users, pos_items, neg_users, neg_items)
+            pos_scores, neg_scores, l2_norm_sq = surrogate_model.bce_forward(pos_users, pos_items, neg_users, neg_items)
             bce_loss_p = F.softplus(-pos_scores) * profiles[pos_users, pos_items]
             bce_loss_n = F.softplus(neg_scores) * n_profiles[neg_users, neg_items]
 
@@ -80,12 +80,8 @@ class OptAttacker(BasicAttacker):
             reg_loss = surrogate_trainer.l2_reg * l2_norm_sq.mean()
             loss = bce_loss + reg_loss
             surrogate_trainer.opt.zero_grad()
-            adv_opt.zero_grad()
             loss.backward()
-            if rec_or_fake == 'rec':
-                surrogate_trainer.opt.step()
-            elif rec_or_fake == 'fake':
-                adv_opt.step()
+            surrogate_trainer.opt.step()
             losses.update(loss.item(), l2_norm_sq.shape[0])
         return losses.avg
 
@@ -97,6 +93,17 @@ class OptAttacker(BasicAttacker):
         surrogate_trainer.opt.step()
         return loss.item()
 
+    def train_fake(self, surrogate_model, surrogate_trainer, fake_tensor, adv_opt, temp_fake_user_tensor, verbose):
+        for f_epoch in range(self.n_fake_epochs):
+            profiles = F.softmax(fake_tensor, dim=-1)
+            scores = surrogate_model.predict(temp_fake_user_tensor)
+            loss = bce_loss(profiles, scores, surrogate_trainer.negative_sample_ratio)
+            adv_opt.zero_grad()
+            loss.backward()
+            adv_opt.step()
+            vprint('Fake Epoch {:d}/{:d}, Train Loss Fake: {:.6f}'.format(f_epoch, self.n_fake_epochs, loss), verbose)
+        return loss.item()
+
     def init_fake_tensor(self, n_temp_fakes):
         sample_idxes = torch.randint(self.candidate_mat.shape[0], size=[n_temp_fakes])
         fake_tensor = torch.tensor(self.candidate_mat[sample_idxes].toarray(), dtype=torch.float32, device=self.device)
@@ -104,10 +111,8 @@ class OptAttacker(BasicAttacker):
         return fake_tensor
 
     def choose_filler_items(self, fake_tensor, temp_fake_user_tensor):
-        with torch.no_grad():
-            profiles = gumbel_topk(fake_tensor, self.n_inters, self.tau)
         for u_idx in range(temp_fake_user_tensor.shape[0]):
-            filler_items = profiles[u_idx, :].topk(self.n_inters).indices
+            filler_items = fake_tensor[u_idx, :].topk(self.n_inters).indices
 
             f_u = temp_fake_user_tensor[u_idx]
             filler_items = filler_items.cpu().numpy().tolist()
@@ -137,12 +142,11 @@ class OptAttacker(BasicAttacker):
             for i_round in range(self.n_rounds):
                 surrogate_model.train()
                 tn_loss = surrogate_trainer.train_one_epoch(None)
-                tf_loss_r = self.fake_train(surrogate_model, surrogate_trainer, fake_tensor, adv_opt,
-                                            n_temp_fakes, 'rec')
+                tf_loss_r = self.fake_train(surrogate_model, surrogate_trainer, fake_tensor)
                 targe_hr = self.hr_gain * fake_user_end_indices[i_step] / self.n_fakes + self.init_hr
                 p_loss = self.poison_train(surrogate_model, surrogate_trainer, targe_hr)
-                tf_loss_f = self.fake_train(surrogate_model, surrogate_trainer, fake_tensor, adv_opt,
-                                            n_temp_fakes, 'fake')
+                tf_loss_f = self.train_fake(surrogate_model, surrogate_trainer,
+                                            fake_tensor, adv_opt, temp_fake_user_tensor, verbose)
 
                 target_hr = get_target_hr(surrogate_model, self.target_user_loader, self.target_item_tensor, self.topk)
                 vprint('Round {:d}/{:d}, Poison Loss: {:.6f}, Train Loss Normal: {:.6f}, '

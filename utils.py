@@ -130,6 +130,15 @@ def ce_loss(scores, target_item_tensor):
     return -log_probs[:, target_item_tensor].mean()
 
 
+def bce_loss(profiles, scores, weight):
+    n_profiles = 1. - profiles
+    loss_p = (F.softplus(-scores) * profiles).sum() / profiles.sum()
+    loss_n = (F.softplus(scores) * n_profiles).sum() / n_profiles.sum()
+    loss = loss_p + loss_n * weight
+    loss = loss / (weight + 1.)
+    return loss
+
+
 def vprint(content, verbose):
     if verbose:
         print(content)
@@ -157,18 +166,6 @@ def opt_loss(target_scores, top_scores, target_hr):
     return bottom_loss
 
 
-def gumbel_topk(logits, topk, tau):
-    k_hot = []
-    for _ in range(topk):
-        one_hot = F.gumbel_softmax(logits, tau=tau, hard=False, dim=-1)
-        k_hot.append(one_hot)
-        max_indexes = torch.argmax(one_hot, dim=-1)
-        mask = torch.zeros_like(logits).scatter(1, max_indexes[:, None], -np.inf)
-        logits = logits + mask
-    k_hot = torch.stack(k_hot, dim=0).sum(dim=0)
-    return k_hot
-
-
 class AttackDataset(Dataset):
     def __init__(self, profiles, n_profiles, length, negative_sample_ratio):
         self.profiles = profiles.detach().cpu().numpy()
@@ -189,5 +186,5 @@ class AttackDataset(Dataset):
         data_with_negs = np.ones((self.negative_sample_ratio, 3), dtype=np.int64)
         data_with_negs[:, 0] = fake_u
         data_with_negs[:, 1] = pos_item
-        data_with_negs[:, 2] = np.random.choice(self.n_items, size=self.negative_sample_ratio, p=self.profiles[fake_u])
+        data_with_negs[:, 2] = np.random.choice(self.n_items, size=self.negative_sample_ratio, p=self.n_profiles[fake_u])
         return data_with_negs

@@ -6,7 +6,7 @@ from attacker.basic_attacker import BasicAttacker
 import numpy as np
 from model import get_model
 from trainer import get_trainer
-from utils import AverageMeter, vprint, get_target_hr, opt_loss, AttackDataset, bce_loss
+from utils import AverageMeter, vprint, get_target_hr, opt_loss, AttackDataset, gumbel_topk
 import torch.nn.functional as F
 import time
 import os
@@ -21,13 +21,14 @@ class OptAttacker(BasicAttacker):
         self.surrogate_trainer_config = attacker_config['surrogate_trainer_config']
 
         self.alpha = attacker_config['alpha']
+        self.tau = attacker_config.get('tau', 1.)
         self.init_hr = attacker_config['init_hr']
         self.hr_gain = attacker_config['hr_gain']
         self.step = attacker_config['step']
         self.n_rounds = attacker_config['n_rounds']
+        self.n_fake_epochs = attacker_config['n_fake_epochs']
         self.lr = attacker_config['lr']
         self.weight_decay = attacker_config['weight_decay']
-        self.n_fake_epochs = attacker_config['n_fake_epochs']
 
         self.candidate_mat = self.construct_candidates()
         self.target_item_tensor = torch.tensor(self.target_items, dtype=torch.int64, device=self.device)
@@ -60,7 +61,8 @@ class OptAttacker(BasicAttacker):
         return target_scores, top_scores
 
     def fake_train(self, surrogate_model, surrogate_trainer, fake_tensor):
-        profiles = F.softmax(fake_tensor, dim=-1)
+        with torch.no_grad():
+            profiles = gumbel_topk(fake_tensor, self.n_inters, self.tau)
         n_profiles = 1. - profiles
         dataset = AttackDataset(profiles, n_profiles, fake_tensor.shape[0] * self.n_inters, surrogate_trainer.negative_sample_ratio)
         dataloader = DataLoader(dataset, batch_size=surrogate_trainer.dataloader.batch_size,
@@ -72,9 +74,10 @@ class OptAttacker(BasicAttacker):
             pos_users, pos_items = inputs[:, 0, 0], inputs[:, 0, 1]
             inputs = inputs.reshape(-1, 3)
             neg_users, neg_items = inputs[:, 0], inputs[:, 2]
-            pos_scores, neg_scores, l2_norm_sq = surrogate_model.bce_forward(pos_users, pos_items, neg_users, neg_items)
-            bce_loss_p = F.softplus(-pos_scores) * profiles[pos_users, pos_items]
-            bce_loss_n = F.softplus(neg_scores) * n_profiles[neg_users, neg_items]
+            pos_scores, neg_scores, l2_norm_sq = surrogate_model.bce_forward(pos_users + self.dataset.n_users, pos_items,
+                                                                             neg_users + self.dataset.n_users, neg_items)
+            bce_loss_p = F.softplus(-pos_scores)
+            bce_loss_n = F.softplus(neg_scores)
 
             bce_loss = torch.cat([bce_loss_p, bce_loss_n], dim=0).mean()
             reg_loss = surrogate_trainer.l2_reg * l2_norm_sq.mean()
@@ -94,12 +97,41 @@ class OptAttacker(BasicAttacker):
         return loss.item()
 
     def train_fake(self, surrogate_model, surrogate_trainer, fake_tensor, adv_opt, temp_fake_user_tensor, verbose):
+        paras = [para for para in surrogate_model.parameters()]
+        real_grads = [torch.zeros_like(para) for para in paras]
+        for batch_data in surrogate_trainer.dataloader:
+            inputs = batch_data.to(device=self.device, dtype=torch.int64)
+            pos_users, pos_items = inputs[:, 0, 0], inputs[:, 0, 1]
+            inputs = inputs.reshape(-1, 3)
+            neg_users, neg_items = inputs[:, 0], inputs[:, 2]
+            pos_scores, neg_scores, l2_norm_sq = surrogate_model.bce_forward(pos_users, pos_items, neg_users, neg_items)
+            bce_loss_p = F.softplus(-pos_scores)
+            bce_loss_n = F.softplus(neg_scores)
+
+            bce_loss = torch.cat([bce_loss_p, bce_loss_n], dim=0).sum()
+            reg_loss = surrogate_trainer.l2_reg * l2_norm_sq.sum()
+            loss = bce_loss + reg_loss
+            new_grad = torch.autograd.grad(loss, paras)
+            for g_idx in range(len(real_grads)):
+                real_grads[g_idx] = real_grads[g_idx] + new_grad[g_idx]
+
         for f_epoch in range(self.n_fake_epochs):
-            profiles = F.softmax(fake_tensor, dim=-1)
-            scores = surrogate_model.predict(temp_fake_user_tensor)
-            loss = bce_loss(profiles, scores, surrogate_trainer.negative_sample_ratio)
+            profiles = gumbel_topk(fake_tensor, self.n_inters, self.tau)
+            n_profiles = 1. - profiles
+            n_profiles = n_profiles / n_profiles.sum() * profiles.sum() * surrogate_trainer.negative_sample_ratio
+            scores, l2_norm_sq = surrogate_model.forward(temp_fake_user_tensor)
+            loss_p = F.softplus(-scores) + surrogate_trainer.l2_reg * l2_norm_sq
+            loss_n = F.softplus(scores) + surrogate_trainer.l2_reg * l2_norm_sq
+            loss_p = (loss_p * profiles).sum()
+            loss_n = (loss_n * n_profiles).sum()
+            loss = loss_p + loss_n
+            new_grad = torch.autograd.grad(loss, paras, create_graph=True)
+            total_grads_l2 = []
+            for g_idx in range(len(real_grads)):
+                total_grads_l2.append(((real_grads[g_idx] + new_grad[g_idx]) ** 2).sum())
+            loss = torch.stack(total_grads_l2, dim=0).sum(dim=0)
             adv_opt.zero_grad()
-            loss.backward()
+            fake_tensor.grad = torch.autograd.grad(loss, [fake_tensor])[0]
             adv_opt.step()
             vprint('Fake Epoch {:d}/{:d}, Train Loss Fake: {:.6f}'.format(f_epoch, self.n_fake_epochs, loss), verbose)
         return loss.item()

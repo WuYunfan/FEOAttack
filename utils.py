@@ -130,15 +130,6 @@ def ce_loss(scores, target_item_tensor):
     return -log_probs[:, target_item_tensor].mean()
 
 
-def bce_loss(profiles, scores, weight):
-    n_profiles = 1. - profiles
-    loss_p = (F.softplus(-scores) * profiles).sum() / profiles.sum()
-    loss_n = (F.softplus(scores) * n_profiles).sum() / n_profiles.sum()
-    loss = loss_p + loss_n * weight
-    loss = loss / (weight + 1.)
-    return loss
-
-
 def vprint(content, verbose):
     if verbose:
         print(content)
@@ -164,6 +155,18 @@ def opt_loss(target_scores, top_scores, target_hr):
     bottom_loss, _ = loss.reshape(-1).topk(n_target_users)
     bottom_loss = -bottom_loss
     return bottom_loss
+
+
+def gumbel_topk(logits, topk, tau):
+    k_hot = []
+    for _ in range(topk):
+        one_hot = F.gumbel_softmax(logits, tau=tau, hard=True, dim=-1)
+        k_hot.append(one_hot)
+        max_indexes = torch.argmax(one_hot, dim=-1)
+        mask = torch.zeros_like(logits).scatter(1, max_indexes[:, None], -np.inf)
+        logits = logits + mask
+    k_hot = torch.stack(k_hot, dim=0).sum(dim=0)
+    return k_hot
 
 
 class AttackDataset(Dataset):

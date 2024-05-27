@@ -13,11 +13,10 @@ import numpy as np
 
 
 def objective(trial):
-    alpha = trial.suggest_categorical('alpha', [1.e-2, 1.e-1, 1.])
     s_l2 = trial.suggest_categorical('s_l2', [1.e-3, 1.e-2, 1.e-1])
     s_lr = trial.suggest_categorical('s_lr', [1.e-3, 1.e-2])
-    lr = trial.suggest_categorical('lr', [1.e-2, 1.e-1])
-    wd = trial.suggest_categorical('weight_decay', [1.e-7, 1.e-8, 1.e-9])
+    lr = trial.suggest_categorical('lr', [0.2])
+    wd = trial.suggest_categorical('weight_decay', [0.1])
     set_seed(2023)
     device = torch.device('cuda')
     dataset_config, model_config, trainer_config = get_config(device)[-1]
@@ -26,7 +25,7 @@ def objective(trial):
                                 'n_epochs': 0, 'batch_size': 2 ** 12, 'dataloader_num_workers': 6,
                                 'test_batch_size': 2048, 'topks': [50], 'neg_ratio': 4, 'verbose': False}
     attacker_config = {'name': 'OptAttacker', 'n_fakes': 131, 'topk': 50,
-                       'n_inters': 41, 'alpha': alpha, 'init_hr': 0.005, 'hr_gain': 0.01,
+                       'n_inters': 41, 'init_hr': 0.005, 'hr_gain': 0.01,
                        'step': 100, 'n_rounds': 100, 'lr': lr, 'weight_decay': wd, 'exp_avg_factor': 0.1,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}

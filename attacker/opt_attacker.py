@@ -26,9 +26,9 @@ class OptAttacker(BasicAttacker):
         self.hr_gain = attacker_config['hr_gain']
         self.step = attacker_config['step']
         self.n_rounds = attacker_config['n_rounds']
-        self.n_fake_epochs = attacker_config['n_fake_epochs']
         self.lr = attacker_config['lr']
         self.weight_decay = attacker_config['weight_decay']
+        self.exp_avg_factor = attacker_config['exp_avg_factor']
 
         self.candidate_mat = self.construct_candidates()
         self.target_item_tensor = torch.tensor(self.target_items, dtype=torch.int64, device=self.device)
@@ -88,52 +88,39 @@ class OptAttacker(BasicAttacker):
             losses.update(loss.item(), l2_norm_sq.shape[0])
         return losses.avg
 
-    def poison_train(self, surrogate_model, surrogate_trainer, target_hr):
+    def poison_train(self, surrogate_model, surrogate_trainer, target_hr, surrogate_paras, surrogate_poison_grads):
         target_scores, top_scores = self.get_target_item_and_top_scores(surrogate_model)
         loss = self.alpha * opt_loss(target_scores, top_scores, target_hr).mean()
         surrogate_trainer.opt.zero_grad()
         loss.backward()
         surrogate_trainer.opt.step()
+        for g_idx, para in enumerate(surrogate_paras):
+            surrogate_poison_grads[g_idx] = surrogate_poison_grads[g_idx] * (1. - self.exp_avg_factor) + \
+                                            para.grad * self.exp_avg_factor
         return loss.item()
 
-    def train_fake(self, surrogate_model, surrogate_trainer, fake_tensor, adv_opt, temp_fake_user_tensor, verbose):
-        paras = [para for para in surrogate_model.parameters()]
-        real_grads = [torch.zeros_like(para) for para in paras]
-        for batch_data in surrogate_trainer.dataloader:
-            inputs = batch_data.to(device=self.device, dtype=torch.int64)
-            pos_users, pos_items = inputs[:, 0, 0], inputs[:, 0, 1]
-            inputs = inputs.reshape(-1, 3)
-            neg_users, neg_items = inputs[:, 0], inputs[:, 2]
-            pos_scores, neg_scores, l2_norm_sq = surrogate_model.bce_forward(pos_users, pos_items, neg_users, neg_items)
-            bce_loss_p = F.softplus(-pos_scores)
-            bce_loss_n = F.softplus(neg_scores)
-
-            bce_loss = torch.cat([bce_loss_p, bce_loss_n], dim=0).sum()
-            reg_loss = surrogate_trainer.l2_reg * l2_norm_sq.sum()
-            loss = bce_loss + reg_loss
-            new_grad = torch.autograd.grad(loss, paras)
-            for g_idx in range(len(real_grads)):
-                real_grads[g_idx] = real_grads[g_idx] + new_grad[g_idx]
-
-        for f_epoch in range(self.n_fake_epochs):
-            profiles = gumbel_topk(fake_tensor, self.n_inters, self.tau)
-            n_profiles = 1. - profiles
-            n_profiles = n_profiles / n_profiles.sum() * profiles.sum() * surrogate_trainer.negative_sample_ratio
-            scores, l2_norm_sq = surrogate_model.forward(temp_fake_user_tensor)
-            loss_p = F.softplus(-scores) + surrogate_trainer.l2_reg * l2_norm_sq
-            loss_n = F.softplus(scores) + surrogate_trainer.l2_reg * l2_norm_sq
-            loss_p = (loss_p * profiles).sum()
-            loss_n = (loss_n * n_profiles).sum()
-            loss = loss_p + loss_n
-            new_grad = torch.autograd.grad(loss, paras, create_graph=True)
-            total_grads_l2 = []
-            for g_idx in range(len(real_grads)):
-                total_grads_l2.append(((real_grads[g_idx] + new_grad[g_idx]) ** 2).sum())
-            loss = torch.stack(total_grads_l2, dim=0).sum(dim=0)
-            adv_opt.zero_grad()
-            fake_tensor.grad = torch.autograd.grad(loss, [fake_tensor])[0]
-            adv_opt.step()
-            vprint('Fake Epoch {:d}/{:d}, Train Loss Fake: {:.6f}'.format(f_epoch, self.n_fake_epochs, loss), verbose)
+    def train_fake(self, surrogate_model, surrogate_trainer, fake_tensor, adv_opt, temp_fake_user_tensor,
+                   surrogate_paras, surrogate_poison_grads, verbose):
+        profiles = gumbel_topk(fake_tensor, self.n_inters, self.tau)
+        n_profiles = 1. - profiles
+        profiles = profiles / surrogate_trainer.dataloader.batch_size / (1. + surrogate_trainer.negative_sample_ratio)
+        n_profiles = n_profiles / n_profiles.sum() * profiles.sum() * surrogate_trainer.negative_sample_ratio
+        scores, l2_norm_sq = surrogate_model.forward(temp_fake_user_tensor)
+        loss_p = F.softplus(-scores) + surrogate_trainer.l2_reg * l2_norm_sq
+        loss_n = F.softplus(scores) + surrogate_trainer.l2_reg * l2_norm_sq
+        loss_p = (loss_p * profiles).sum()
+        loss_n = (loss_n * n_profiles).sum()
+        loss = loss_p + loss_n
+        fake_grad = torch.autograd.grad(loss, surrogate_paras, create_graph=True)
+        mse_grads = []
+        for g_idx in range(len(surrogate_poison_grads)):
+            mse_grad = (surrogate_poison_grads[g_idx] - fake_grad[g_idx]) ** 2
+            mse_grads.append(mse_grad.sum())
+        loss = torch.stack(mse_grads, dim=0).sum(dim=0)
+        adv_opt.zero_grad()
+        fake_tensor.grad = torch.autograd.grad(loss, [fake_tensor])[0]
+        adv_opt.step()
+        vprint('Fake Loss: {:.6f}'.format(loss), verbose)
         return loss.item()
 
     def init_fake_tensor(self, n_temp_fakes):
@@ -170,15 +157,17 @@ class OptAttacker(BasicAttacker):
             surrogate_trainer = get_trainer(self.surrogate_trainer_config, surrogate_model)
             fake_tensor = self.init_fake_tensor(n_temp_fakes)
             adv_opt = Adam([fake_tensor], lr=self.lr, weight_decay=self.weight_decay)
+            surrogate_paras = [para for para in surrogate_model.parameters()]
+            surrogate_poison_grads = [torch.zeros_like(para) for para in surrogate_paras]
 
             for i_round in range(self.n_rounds):
                 surrogate_model.train()
                 tn_loss = surrogate_trainer.train_one_epoch(None)
                 tf_loss_r = self.fake_train(surrogate_model, surrogate_trainer, fake_tensor)
                 targe_hr = self.hr_gain * fake_user_end_indices[i_step] / self.n_fakes + self.init_hr
-                p_loss = self.poison_train(surrogate_model, surrogate_trainer, targe_hr)
-                tf_loss_f = self.train_fake(surrogate_model, surrogate_trainer,
-                                            fake_tensor, adv_opt, temp_fake_user_tensor, verbose)
+                p_loss = self.poison_train(surrogate_model, surrogate_trainer, targe_hr, surrogate_paras, surrogate_poison_grads)
+                tf_loss_f = self.train_fake(surrogate_model, surrogate_trainer, fake_tensor, adv_opt,
+                                            temp_fake_user_tensor, surrogate_paras, surrogate_poison_grads, verbose)
 
                 target_hr = get_target_hr(surrogate_model, self.target_user_loader, self.target_item_tensor, self.topk)
                 vprint('Round {:d}/{:d}, Poison Loss: {:.6f}, Train Loss Normal: {:.6f}, '

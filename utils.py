@@ -171,12 +171,13 @@ def gumbel_topk(logits, topk, tau):
 
 
 class AttackDataset(Dataset):
-    def __init__(self, profiles, n_profiles, length, negative_sample_ratio):
+    def __init__(self, profiles, n_profiles, n_existing_users, negative_sample_ratio):
+        self.length = int(profiles.sum().item())
         self.profiles = profiles.detach().cpu().numpy()
         self.profiles = self.profiles / np.sum(self.profiles, axis=1)[:, None]
         self.n_profiles = n_profiles.detach().cpu().numpy()
         self.n_profiles = self.n_profiles / np.sum(self.n_profiles, axis=1)[:, None]
-        self.length = length
+        self.n_existing_users = n_existing_users
         self.negative_sample_ratio = negative_sample_ratio
         self.n_fakes = profiles.shape[0]
         self.n_items = profiles.shape[1]
@@ -188,7 +189,7 @@ class AttackDataset(Dataset):
         fake_u = random.randint(0, self.n_fakes - 1)
         pos_item = np.random.choice(self.n_items, p=self.profiles[fake_u])
         data_with_negs = np.ones((self.negative_sample_ratio, 3), dtype=np.int64)
-        data_with_negs[:, 0] = fake_u
+        data_with_negs[:, 0] = fake_u + self.n_existing_users
         data_with_negs[:, 1] = pos_item
         data_with_negs[:, 2] = np.random.choice(self.n_items, size=self.negative_sample_ratio, p=self.n_profiles[fake_u])
         return data_with_negs

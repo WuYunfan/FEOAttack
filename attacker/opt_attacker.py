@@ -59,35 +59,20 @@ class OptAttacker(BasicAttacker):
         top_scores = torch.cat(top_scores, dim=0)
         return target_scores, top_scores
 
-    def fake_train(self, surrogate_model, surrogate_trainer, fake_tensor):
+    def fake_train(self, surrogate_trainer, fake_tensor):
         with torch.no_grad():
             profiles = gumbel_topk(fake_tensor, self.n_inters, self.tau)
         n_profiles = 1. - profiles
-        dataset = AttackDataset(profiles, n_profiles,
-                                int(profiles.sum().item()),
-                                surrogate_trainer.negative_sample_ratio)
-        dataloader = DataLoader(dataset, batch_size=surrogate_trainer.dataloader.batch_size,
-                                num_workers=surrogate_trainer.dataloader.num_workers,
-                                persistent_workers=False, pin_memory=False)
-        losses = AverageMeter()
-        for batch_data in dataloader:
-            inputs = batch_data.to(device=self.device, dtype=torch.int64)
-            pos_users, pos_items = inputs[:, 0, 0], inputs[:, 0, 1]
-            inputs = inputs.reshape(-1, 3)
-            neg_users, neg_items = inputs[:, 0], inputs[:, 2]
-            pos_scores, neg_scores, l2_norm_sq = surrogate_model.bce_forward(pos_users + self.dataset.n_users, pos_items,
-                                                                             neg_users + self.dataset.n_users, neg_items)
-            bce_loss_p = F.softplus(-pos_scores)
-            bce_loss_n = F.softplus(neg_scores)
-
-            bce_loss = torch.cat([bce_loss_p, bce_loss_n], dim=0).mean()
-            reg_loss = surrogate_trainer.l2_reg * l2_norm_sq.mean()
-            loss = bce_loss + reg_loss
-            surrogate_trainer.opt.zero_grad()
-            loss.backward()
-            surrogate_trainer.opt.step()
-            losses.update(loss.item(), l2_norm_sq.shape[0])
-        return losses.avg
+        attack_dataset = AttackDataset(profiles, n_profiles, self.dataset.n_users,
+                                       surrogate_trainer.negative_sample_ratio)
+        attack_dataloader = DataLoader(attack_dataset, batch_size=surrogate_trainer.dataloader.batch_size,
+                                       num_workers=surrogate_trainer.dataloader.num_workers,
+                                       persistent_workers=False, pin_memory=False)
+        original_dataloader = surrogate_trainer.dataloader
+        surrogate_trainer.dataloader = attack_dataloader
+        tf_loss = surrogate_trainer.train_one_epoch(None)
+        surrogate_trainer.dataloader = original_dataloader
+        return tf_loss
 
     def get_poison_grads(self, surrogate_model, target_hr, surrogate_paras, surrogate_poison_grads):
         target_scores, top_scores = self.get_target_item_and_top_scores(surrogate_model)
@@ -167,7 +152,7 @@ class OptAttacker(BasicAttacker):
             for i_round in range(self.n_rounds):
                 surrogate_model.train()
                 tn_loss = surrogate_trainer.train_one_epoch(None)
-                tf_loss = self.fake_train(surrogate_model, surrogate_trainer, fake_tensor)
+                tf_loss = self.fake_train(surrogate_trainer, fake_tensor)
                 targe_hr = self.hr_gain * fake_user_end_indices[i_step] / self.n_fakes + self.init_hr
                 self.get_poison_grads(surrogate_model, targe_hr, surrogate_paras, surrogate_poison_grads)
                 f_loss = self.train_fake(surrogate_model, surrogate_trainer, fake_tensor, adv_opt,

@@ -64,7 +64,7 @@ class OptAttacker(BasicAttacker):
             profiles = gumbel_topk(fake_tensor, self.n_inters, self.tau)
         n_profiles = 1. - profiles
         dataset = AttackDataset(profiles, n_profiles,
-                                min(fake_tensor.shape[0] * self.n_inters, int(profiles.sum().item())),
+                                int(profiles.sum().item()),
                                 surrogate_trainer.negative_sample_ratio)
         dataloader = DataLoader(dataset, batch_size=surrogate_trainer.dataloader.batch_size,
                                 num_workers=surrogate_trainer.dataloader.num_workers,
@@ -93,7 +93,7 @@ class OptAttacker(BasicAttacker):
         target_scores, top_scores = self.get_target_item_and_top_scores(surrogate_model)
         loss = opt_loss(target_scores, top_scores, target_hr).mean()
         poison_grads_now = torch.autograd.grad(loss, surrogate_paras)
-        for g_idx, para in enumerate(surrogate_paras):
+        for g_idx in range(len(surrogate_poison_grads)):
             surrogate_poison_grads[g_idx] = surrogate_poison_grads[g_idx] * (1. - self.exp_avg_factor) + \
                                             poison_grads_now[g_idx] * self.exp_avg_factor
 

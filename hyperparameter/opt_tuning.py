@@ -33,7 +33,6 @@ def objective(trial):
     dataset = get_dataset(dataset_config)
     target_items = get_target_items(dataset)
     attacker_config['target_items'] = target_items
-    dataset = get_dataset(dataset_config)
     attacker = get_attacker(attacker_config, dataset)
     attacker.generate_fake_users(verbose=False)
     recall = attacker.eval(model_config, trainer_config)

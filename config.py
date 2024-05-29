@@ -96,6 +96,18 @@ def get_gowalla_attacker_config():
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
     gowalla_attacker_config.append(attacker_config)
+
+    surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
+    surrogate_trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam', 'lr': None, 'l2_reg': None,
+                                'n_epochs': 0, 'batch_size': 2 ** 12, 'dataloader_num_workers': 6,
+                                'test_batch_size': 2048, 'topks': [50], 'neg_ratio': 4, 'verbose': False}
+    attacker_config = {'name': 'OptAttacker', 'n_fakes': 131, 'topk': 50,
+                       'n_inters': 41, 'init_hr': 0.005, 'hr_gain': 0.05,
+                       'step': 131, 'n_rounds': 200,
+                       'lr': None, 'weight_decay': None, 'exp_avg_factor': None,
+                       'surrogate_model_config': surrogate_model_config,
+                       'surrogate_trainer_config': surrogate_trainer_config}
+    gowalla_attacker_config.append(attacker_config)
     return gowalla_attacker_config
 
 

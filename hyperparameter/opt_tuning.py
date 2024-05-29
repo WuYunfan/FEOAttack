@@ -15,6 +15,7 @@ import numpy as np
 def objective(trial):
     s_l2 = trial.suggest_categorical('s_l2', [1.e-3, 1.e-2, 1.e-1])
     s_lr = trial.suggest_categorical('s_lr', [1.e-3, 1.e-2])
+    exp_f = trial.suggest_categorical('exp_f', [0.05, 0.1, 0.2])
     lr = trial.suggest_categorical('lr', [0.2])
     wd = trial.suggest_categorical('weight_decay', [0.1])
     set_seed(2023)
@@ -26,7 +27,8 @@ def objective(trial):
                                 'test_batch_size': 2048, 'topks': [50], 'neg_ratio': 4, 'verbose': False}
     attacker_config = {'name': 'OptAttacker', 'n_fakes': 131, 'topk': 50,
                        'n_inters': 41, 'init_hr': 0.005, 'hr_gain': 0.05,
-                       'step': 131, 'n_rounds': 200, 'lr': lr, 'weight_decay': wd, 'exp_avg_factor': 0.1,
+                       'step': 131, 'n_rounds': 200,
+                       'lr': lr, 'weight_decay': wd, 'exp_avg_factor': exp_f,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
 

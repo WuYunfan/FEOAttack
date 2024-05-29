@@ -149,10 +149,10 @@ def get_target_hr(surrogate_model, target_user_loader, target_item_tensor, topk)
     return hrs.avg
 
 
-def opt_loss(target_scores, top_scores, target_hr):
+def opt_loss(target_scores, top_scores, expected_hr):
     loss = -F.softplus(torch.relu(top_scores - target_scores))
-    n_target_hits = int(target_hr * loss.shape[0] * loss.shape[1])
-    bottom_loss = loss.reshape(-1).topk(n_target_hits).indices
+    n_target_hits = int(expected_hr * loss.shape[0] * loss.shape[1])
+    bottom_loss = loss.reshape(-1).topk(n_target_hits).values
     bottom_loss = -bottom_loss
     return bottom_loss
 

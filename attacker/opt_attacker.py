@@ -6,12 +6,13 @@ from attacker.basic_attacker import BasicAttacker
 import numpy as np
 from model import get_model
 from trainer import get_trainer
-from utils import AverageMeter, vprint, get_target_hr, opt_loss, AttackDataset, gumbel_topk
+from utils import AverageMeter, vprint, get_target_hr, goal_oriented_loss, AttackDataset, gumbel_topk
 import torch.nn.functional as F
 import time
 import os
 import scipy.sparse as sp
 from torch.optim import SGD, Adam
+import higher
 
 
 class OptAttacker(BasicAttacker):
@@ -26,8 +27,10 @@ class OptAttacker(BasicAttacker):
         self.step = attacker_config['step']
         self.n_rounds = attacker_config['n_rounds']
         self.lr = attacker_config['lr']
-        self.weight_decay = attacker_config['weight_decay']
-        self.exp_avg_factor = attacker_config['exp_avg_factor']
+        self.reg = attacker_config['reg']
+        self.momentum = attacker_config['momentum']
+        self.look_ahead_lr = attacker_config['look_ahead_lr']
+        self.look_ahead_step = attacker_config['look_ahead_step']
 
         self.candidate_mat = self.construct_candidates()
         self.target_item_tensor = torch.tensor(self.target_items, dtype=torch.int64, device=self.device)
@@ -74,40 +77,35 @@ class OptAttacker(BasicAttacker):
         surrogate_trainer.dataloader = original_dataloader
         return tf_loss
 
-    def get_poison_grads(self, surrogate_model, expected_hr, surrogate_paras, surrogate_poison_grads):
-        target_scores, top_scores = self.get_target_item_and_top_scores(surrogate_model)
-        loss = opt_loss(target_scores, top_scores, expected_hr).mean()
-        poison_grads_now = torch.autograd.grad(loss, surrogate_paras)
-        for g_idx in range(len(surrogate_poison_grads)):
-            surrogate_poison_grads[g_idx] = surrogate_poison_grads[g_idx] * (1. - self.exp_avg_factor) + \
-                                            poison_grads_now[g_idx] * self.exp_avg_factor
-
     def train_fake(self, surrogate_model, surrogate_trainer, fake_tensor, adv_opt,
-                   temp_fake_user_tensor, surrogate_paras, surrogate_poison_grads, verbose):
+                   temp_fake_user_tensor, expected_hr, verbose):
         profiles = gumbel_topk(fake_tensor, self.n_inters, self.tau)
         n_profiles = 1. - profiles
         profiles = profiles / surrogate_trainer.dataloader.batch_size / (1. + surrogate_trainer.negative_sample_ratio)
         n_profiles = n_profiles / n_profiles.sum() * profiles.sum() * surrogate_trainer.negative_sample_ratio
 
-        scores, l2_norm_sq = surrogate_model.forward(temp_fake_user_tensor)
-        loss_p = F.softplus(-scores) + surrogate_trainer.l2_reg * l2_norm_sq
-        loss_n = F.softplus(scores) + surrogate_trainer.l2_reg * l2_norm_sq
-        loss_p = (loss_p * profiles).sum()
-        loss_n = (loss_n * n_profiles).sum()
-        loss = loss_p + loss_n
+        opt = SGD(surrogate_model.parameters(), lr=self.look_ahead_lr)
+        with higher.innerloop_ctx(surrogate_model, opt) as (fmodel, diffopt):
+            fmodel.train()
+            for _ in range(self.look_ahead_step):
+                scores = fmodel.predict(temp_fake_user_tensor)
+                loss_p = F.softplus(-scores)
+                loss_n = F.softplus(scores)
+                loss_p = (loss_p * profiles).sum()
+                loss_n = (loss_n * n_profiles).sum()
+                loss = loss_p + loss_n
+                diffopt.step(loss)
 
-        fake_grad = torch.autograd.grad(loss, surrogate_paras, create_graph=True)
-        dot_products = []
-        for g_idx in range(len(surrogate_poison_grads)):
-            dot_product = (surrogate_poison_grads[g_idx] * fake_grad[g_idx]).sum()
-            dot_products.append(dot_product)
-        loss = -torch.stack(dot_products, dim=0).sum(dim=0)
+            fmodel.eval()
+            target_scores, top_scores = self.get_target_item_and_top_scores(fmodel)
+            adv_loss = goal_oriented_loss(target_scores, top_scores, expected_hr).mean() + fake_tensor.sum() * self.reg
+            adv_grads = torch.autograd.grad(adv_loss, fake_tensor)[0]
 
         adv_opt.zero_grad()
-        fake_tensor.grad = torch.sign(torch.autograd.grad(loss, [fake_tensor])[0])
+        fake_tensor.grad = torch.sign(adv_grads)
         adv_opt.step()
         vprint('Fake Loss: {:.6e}'.format(loss), verbose)
-        return loss.item()
+        return adv_loss.item()
 
     def init_fake_tensor(self, n_temp_fakes):
         sample_idxes = torch.randint(self.candidate_mat.shape[0], size=[n_temp_fakes])
@@ -145,18 +143,15 @@ class OptAttacker(BasicAttacker):
             surrogate_model = get_model(self.surrogate_model_config, self.dataset)
             surrogate_trainer = get_trainer(self.surrogate_trainer_config, surrogate_model)
             fake_tensor = self.init_fake_tensor(n_temp_fakes)
-            adv_opt = SGD([fake_tensor], lr=self.lr, weight_decay=self.weight_decay)
-            surrogate_paras = [para for para in surrogate_model.parameters()]
-            surrogate_poison_grads = [torch.zeros_like(para) for para in surrogate_paras]
+            adv_opt = SGD([fake_tensor], lr=self.lr, momentum=self.momentum)
 
             for i_round in range(self.n_rounds):
                 surrogate_model.train()
                 tn_loss = surrogate_trainer.train_one_epoch(None)
                 tf_loss = self.fake_train(surrogate_trainer, fake_tensor)
                 expected_hr = self.hr_gain * fake_user_end_indices[i_step] / self.n_fakes + self.init_hr
-                self.get_poison_grads(surrogate_model, expected_hr, surrogate_paras, surrogate_poison_grads)
                 f_loss = self.train_fake(surrogate_model, surrogate_trainer, fake_tensor, adv_opt,
-                                         temp_fake_user_tensor, surrogate_paras, surrogate_poison_grads, verbose)
+                                         temp_fake_user_tensor, expected_hr, verbose)
 
                 target_hr = get_target_hr(surrogate_model, self.target_user_loader, self.target_item_tensor, self.topk)
                 vprint('Round {:d}/{:d}, Train Loss Normal: {:.6f}, Train Loss Fake: {:.6f}, '

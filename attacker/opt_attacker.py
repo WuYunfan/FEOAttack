@@ -22,8 +22,7 @@ class OptAttacker(BasicAttacker):
         self.surrogate_trainer_config = attacker_config['surrogate_trainer_config']
 
         self.tau = attacker_config.get('tau', 1.)
-        self.init_hr = attacker_config['init_hr']
-        self.hr_gain = attacker_config['hr_gain']
+        self.expected_hr = attacker_config['expected_hr']
         self.step = attacker_config['step']
         self.n_rounds = attacker_config['n_rounds']
         self.lr = attacker_config['lr']
@@ -78,7 +77,7 @@ class OptAttacker(BasicAttacker):
         return tf_loss
 
     def train_fake(self, surrogate_model, surrogate_trainer, fake_tensor, adv_opt,
-                   temp_fake_user_tensor, expected_hr, verbose):
+                   temp_fake_user_tensor, verbose):
         profiles = gumbel_topk(fake_tensor, self.n_inters, self.tau)
         n_profiles = 1. - profiles
         profiles = profiles / surrogate_trainer.dataloader.batch_size / (1. + surrogate_trainer.negative_sample_ratio)
@@ -99,7 +98,7 @@ class OptAttacker(BasicAttacker):
 
             fmodel.eval()
             target_scores, top_scores = self.get_target_item_and_top_scores(fmodel)
-            adv_loss = goal_oriented_loss(target_scores, top_scores, expected_hr).mean()
+            adv_loss = goal_oriented_loss(target_scores, top_scores, self.expected_hr).mean()
             adv_grads = torch.autograd.grad(adv_loss, fake_tensor)[0]
 
         adv_opt.zero_grad()
@@ -123,8 +122,7 @@ class OptAttacker(BasicAttacker):
             _, items = fake_tensor.topk(self.n_inters, dim=1)
             n_inters = torch.gt(fake_tensor, 0.).int().sum(dim=1)
         for u_idx in range(temp_fake_user_tensor.shape[0]):
-            filler_items = items[u_idx, min(n_inters[u_idx], self.n_inters)]
-            assert filler_items.shape[0] <= self.n_inters
+            filler_items = items[u_idx, :min(n_inters[u_idx], self.n_inters)]
 
             f_u = temp_fake_user_tensor[u_idx]
             filler_items = filler_items.cpu().numpy().tolist()
@@ -155,9 +153,8 @@ class OptAttacker(BasicAttacker):
                 surrogate_model.train()
                 tn_loss = surrogate_trainer.train_one_epoch(None)
                 tf_loss = self.fake_train(surrogate_trainer, fake_tensor)
-                expected_hr = self.hr_gain * fake_user_end_indices[i_step] / self.n_fakes + self.init_hr
                 adv_loss = self.train_fake(surrogate_model, surrogate_trainer, fake_tensor, adv_opt,
-                                           temp_fake_user_tensor, expected_hr, verbose)
+                                           temp_fake_user_tensor, verbose)
 
                 target_hr = get_target_hr(surrogate_model, self.target_user_loader, self.target_item_tensor, self.topk)
                 vprint('Round {:d}/{:d}, Train Loss Normal: {:.6f}, Train Loss Fake: {:.6f}, '

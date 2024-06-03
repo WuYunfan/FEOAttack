@@ -29,8 +29,8 @@ class OptAttacker(BasicAttacker):
         self.lr = attacker_config['lr']
         self.reg = attacker_config['reg']
         self.momentum = attacker_config['momentum']
-        self.look_ahead_lr = attacker_config['look_ahead_lr']
         self.look_ahead_step = attacker_config['look_ahead_step']
+        self.look_ahead_lr = attacker_config['look_ahead_lr']
 
         self.candidate_mat = self.construct_candidates()
         self.target_item_tensor = torch.tensor(self.target_items, dtype=torch.int64, device=self.device)

@@ -13,22 +13,23 @@ import numpy as np
 
 
 def objective(trial):
-    s_l2 = trial.suggest_categorical('s_l2', [1.e-3, 1.e-2, 1.e-1])
     s_lr = trial.suggest_categorical('s_lr', [1.e-3, 1.e-2])
-    exp_f = trial.suggest_categorical('exp_f', [0.05, 0.1, 0.2])
+    s_l2 = trial.suggest_categorical('s_l2', [1.e-3, 1.e-2, 1.e-1])
+    look_ahead_lr = trial.suggest_categorical('look_ahead_lr', [1, 10.])
     lr = trial.suggest_categorical('lr', [0.2])
-    wd = trial.suggest_categorical('weight_decay', [0.1])
+    reg = trial.suggest_categorical('reg', [0.01])
+    momentum = trial.suggest_categorical('momentum', [0.95])
     set_seed(2023)
     device = torch.device('cuda')
-    dataset_config, model_config, trainer_config = get_config(device)[-1]
+    dataset_config, model_config, trainer_config = get_config(device)[0]
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
-    surrogate_trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam', 'lr': s_lr, 'l2_reg': s_l2,
-                                'n_epochs': 0, 'batch_size': 2 ** 12, 'dataloader_num_workers': 6,
-                                'test_batch_size': 2048, 'topks': [50], 'neg_ratio': 4, 'verbose': False}
+    surrogate_trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': s_lr, 'l2_reg': s_l2,
+                                'n_epochs': 0, 'batch_size': 2 ** 14, 'dataloader_num_workers': 6,
+                                'test_batch_size': 2048, 'topks': [50], 'verbose': False}
     attacker_config = {'name': 'OptAttacker', 'n_fakes': 131, 'topk': 50,
                        'n_inters': 41, 'init_hr': 0.005, 'hr_gain': 0.05,
-                       'step': 131, 'n_rounds': 200,
-                       'lr': lr, 'weight_decay': wd, 'exp_avg_factor': exp_f,
+                       'step': 131, 'n_rounds': 200, 'look_ahead_step': 2, 'look_ahead_lr': look_ahead_lr,
+                       'lr': lr, 'reg': reg, 'momentum': momentum,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
 

@@ -15,9 +15,9 @@ import numpy as np
 def objective(trial):
     s_lr = trial.suggest_categorical('s_lr', [1.e-3, 1.e-2])
     s_l2 = trial.suggest_categorical('s_l2', [1.e-3, 1.e-2, 1.e-1])
-    look_ahead_lr = trial.suggest_categorical('look_ahead_lr', [1, 10.])
-    lr = trial.suggest_categorical('lr', [0.2])
-    reg = trial.suggest_categorical('reg', [0.01])
+    look_ahead_lr = trial.suggest_categorical('look_ahead_lr', [1.e2, 1.e3, 1.e4])
+    lr = trial.suggest_categorical('lr', [0.01])
+    reg = trial.suggest_categorical('reg', [0.05])
     momentum = trial.suggest_categorical('momentum', [0.95])
     set_seed(2023)
     device = torch.device('cuda')
@@ -27,7 +27,7 @@ def objective(trial):
                                 'n_epochs': 0, 'batch_size': 2 ** 14, 'dataloader_num_workers': 6,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
     attacker_config = {'name': 'OptAttacker', 'n_fakes': 131, 'topk': 50,
-                       'n_inters': 41, 'init_hr': 0.005, 'hr_gain': 0.05,
+                       'n_inters': 41, 'init_hr': 0.005, 'hr_gain': 0.1,
                        'step': 131, 'n_rounds': 200, 'look_ahead_step': 2, 'look_ahead_lr': look_ahead_lr,
                        'lr': lr, 'reg': reg, 'momentum': momentum,
                        'surrogate_model_config': surrogate_model_config,

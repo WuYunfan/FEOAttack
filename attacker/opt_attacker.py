@@ -87,7 +87,7 @@ class OptAttacker(BasicAttacker):
         opt = SGD(surrogate_model.parameters(), lr=self.look_ahead_lr)
         with higher.innerloop_ctx(surrogate_model, opt) as (fmodel, diffopt):
             fmodel.train()
-            for _ in range(self.look_ahead_step):
+            for s in range(self.look_ahead_step):
                 scores = fmodel.predict(temp_fake_user_tensor)
                 loss_p = F.softplus(-scores)
                 loss_n = F.softplus(scores)
@@ -95,16 +95,21 @@ class OptAttacker(BasicAttacker):
                 loss_n = (loss_n * n_profiles).sum()
                 loss = loss_p + loss_n
                 diffopt.step(loss)
+                vprint('Unroll step {:d}, Train Loss Fake: {:.6f}'.format(s, loss), verbose)
 
             fmodel.eval()
             target_scores, top_scores = self.get_target_item_and_top_scores(fmodel)
-            adv_loss = goal_oriented_loss(target_scores, top_scores, expected_hr).mean() + fake_tensor.sum() * self.reg
+            adv_loss = goal_oriented_loss(target_scores, top_scores, expected_hr).mean()
             adv_grads = torch.autograd.grad(adv_loss, fake_tensor)[0]
 
         adv_opt.zero_grad()
         fake_tensor.grad = torch.sign(adv_grads)
         adv_opt.step()
-        vprint('Fake Loss: {:.6e}'.format(loss), verbose)
+        with torch.no_grad():
+            _, items = fake_tensor.topk(self.n_inters, dim=1)
+            fake_tensor.data -= self.reg
+            fake_tensor.data += torch.zeros_like(fake_tensor).scatter(1, items, 2 * self.reg)
+        vprint('Adversarial Loss: {:.6f}'.format(adv_loss.item()), verbose)
         return adv_loss.item()
 
     def init_fake_tensor(self, n_temp_fakes):
@@ -115,9 +120,10 @@ class OptAttacker(BasicAttacker):
 
     def choose_filler_items(self, fake_tensor, temp_fake_user_tensor):
         with torch.no_grad():
-            profiles = gumbel_topk(fake_tensor, self.n_inters, self.tau)
+            _, items = fake_tensor.topk(self.n_inters, dim=1)
+            n_inters = torch.gt(fake_tensor, 0.).int().sum(dim=1)
         for u_idx in range(temp_fake_user_tensor.shape[0]):
-            filler_items = torch.nonzero(profiles[u_idx, :])[:, 0]
+            filler_items = items[u_idx, min(n_inters[u_idx], self.n_inters)]
             assert filler_items.shape[0] <= self.n_inters
 
             f_u = temp_fake_user_tensor[u_idx]
@@ -133,7 +139,7 @@ class OptAttacker(BasicAttacker):
         fake_user_end_indices = list(np.arange(0, self.n_fakes, self.step, dtype=np.int64)) + [self.n_fakes]
         for i_step in range(1, len(fake_user_end_indices)):
             fake_nums_str = '{}-{}'.format(fake_user_end_indices[i_step - 1], fake_user_end_indices[i_step])
-            print('Start generating poison #{:s} !'.format(fake_nums_str))
+            print('Start generating fake #{:s} !'.format(fake_nums_str))
             temp_fake_user_tensor = np.arange(fake_user_end_indices[i_step - 1],
                                               fake_user_end_indices[i_step]) + self.n_users
             temp_fake_user_tensor = torch.tensor(temp_fake_user_tensor, dtype=torch.int64, device=self.device)
@@ -150,21 +156,21 @@ class OptAttacker(BasicAttacker):
                 tn_loss = surrogate_trainer.train_one_epoch(None)
                 tf_loss = self.fake_train(surrogate_trainer, fake_tensor)
                 expected_hr = self.hr_gain * fake_user_end_indices[i_step] / self.n_fakes + self.init_hr
-                f_loss = self.train_fake(surrogate_model, surrogate_trainer, fake_tensor, adv_opt,
-                                         temp_fake_user_tensor, expected_hr, verbose)
+                adv_loss = self.train_fake(surrogate_model, surrogate_trainer, fake_tensor, adv_opt,
+                                           temp_fake_user_tensor, expected_hr, verbose)
 
                 target_hr = get_target_hr(surrogate_model, self.target_user_loader, self.target_item_tensor, self.topk)
                 vprint('Round {:d}/{:d}, Train Loss Normal: {:.6f}, Train Loss Fake: {:.6f}, '
-                       'Fake Loss: {:.6e}, Target Hit Ratio {:.6f}%'.
-                       format(i_round, self.n_rounds, tn_loss, tf_loss, f_loss, target_hr * 100.), verbose)
+                       'Adversarial Loss: {:.6f}, Target Hit Ratio {:.6f}%'.
+                       format(i_round, self.n_rounds, tn_loss, tf_loss, adv_loss, target_hr * 100.), verbose)
                 if writer:
                     writer.add_scalar('{:s}_{:s}/Train_Loss_Normal'.format(self.name, fake_nums_str), tn_loss, i_round)
                     writer.add_scalar('{:s}_{:s}/Train_Loss_Fake'.format(self.name, fake_nums_str), tf_loss, i_round)
-                    writer.add_scalar('{:s}_{:s}/Fake_Loss'.format(self.name, fake_nums_str), f_loss, i_round)
+                    writer.add_scalar('{:s}_{:s}/Adv_Loss'.format(self.name, fake_nums_str), adv_loss, i_round)
                     writer.add_scalar('{:s}_{:s}/Hit_Ratio@{:d}'.format(self.name, fake_nums_str, self.topk),
                                       target_hr, i_round)
             self.choose_filler_items(fake_tensor, temp_fake_user_tensor)
-            print('Poison #{:s} has been generated!'.format(fake_nums_str))
+            print('Fake #{:s} has been generated!'.format(fake_nums_str))
             gc.collect()
             torch.cuda.empty_cache()
 

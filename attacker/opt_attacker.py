@@ -25,6 +25,7 @@ class OptAttacker(BasicAttacker):
         self.expected_hr = attacker_config['expected_hr']
         self.step = attacker_config['step']
         self.n_rounds = attacker_config['n_rounds']
+        self.n_re_init_rounds = attacker_config['n_re_init_rounds']
         self.lr = attacker_config['lr']
         self.reg = attacker_config['reg']
         self.momentum = attacker_config['momentum']
@@ -98,11 +99,11 @@ class OptAttacker(BasicAttacker):
 
             fmodel.eval()
             target_scores, top_scores = self.get_target_item_and_top_scores(fmodel)
-            adv_loss = goal_oriented_loss(target_scores, top_scores, self.expected_hr).mean()
+            adv_loss = goal_oriented_loss(target_scores, top_scores, self.expected_hr).sum()
             adv_grads = torch.autograd.grad(adv_loss, fake_tensor)[0]
 
         adv_opt.zero_grad()
-        fake_tensor.grad = torch.sign(adv_grads)
+        fake_tensor.grad = adv_grads
         adv_opt.step()
         with torch.no_grad():
             _, items = fake_tensor.topk(self.n_inters, dim=1)
@@ -144,12 +145,13 @@ class OptAttacker(BasicAttacker):
             n_temp_fakes = temp_fake_user_tensor.shape[0]
 
             self.surrogate_model_config['n_fakes'] = n_temp_fakes
-            surrogate_model = get_model(self.surrogate_model_config, self.dataset)
-            surrogate_trainer = get_trainer(self.surrogate_trainer_config, surrogate_model)
             fake_tensor = self.init_fake_tensor(n_temp_fakes)
             adv_opt = SGD([fake_tensor], lr=self.lr, momentum=self.momentum)
 
             for i_round in range(self.n_rounds):
+                if i_round % self.n_re_init_rounds == 0:
+                    surrogate_model = get_model(self.surrogate_model_config, self.dataset)
+                    surrogate_trainer = get_trainer(self.surrogate_trainer_config, surrogate_model)
                 surrogate_model.train()
                 tn_loss = surrogate_trainer.train_one_epoch(None)
                 tf_loss = self.fake_train(surrogate_trainer, fake_tensor)

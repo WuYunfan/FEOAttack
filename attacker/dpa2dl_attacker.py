@@ -71,12 +71,12 @@ class DPA2DLAttacker(BasicAttacker):
             self.dataset.train_array += [[f_u, item] for item in filler_items]
 
     def generate_fake_users(self, verbose=True, writer=None):
-        start_time = time.time()
         prob = torch.ones(self.n_items, dtype=torch.float32, device=self.device)
         fake_user_end_indices = list(np.arange(0, self.n_fakes, self.step, dtype=np.int64)) + [self.n_fakes]
         for i_step in range(1, len(fake_user_end_indices)):
+            start_time = time.time()
             fake_nums_str = '{}-{}'.format(fake_user_end_indices[i_step - 1], fake_user_end_indices[i_step])
-            print('Start generating poison #{:s} !'.format(fake_nums_str))
+            print('Start generating fake #{:s} !'.format(fake_nums_str))
             temp_fake_user_tensor = np.arange(fake_user_end_indices[i_step - 1],
                                               fake_user_end_indices[i_step]) + self.n_users
             temp_fake_user_tensor = torch.tensor(temp_fake_user_tensor, dtype=torch.int64, device=self.device)
@@ -108,7 +108,9 @@ class DPA2DLAttacker(BasicAttacker):
                     writer.add_scalar('{:s}_{:s}/Hit_Ratio@{:d}'.format(self.name, fake_nums_str, self.topk),
                                       target_hr, i_round)
             self.choose_filler_items(surrogate_model, temp_fake_user_tensor, prob)
-            print('Poison #{:s} has been generated!'.format(fake_nums_str))
+            consumed_time = time.time() - start_time
+            self.consumed_time += consumed_time
+            print('Fake #{:s} has been generated! Time: {:.3f}s'.format(fake_nums_str, consumed_time))
             gc.collect()
             torch.cuda.empty_cache()
 
@@ -116,5 +118,3 @@ class DPA2DLAttacker(BasicAttacker):
         self.dataset.val_data = self.dataset.val_data[:-self.n_fakes]
         self.dataset.train_array = self.dataset.train_array[:-self.n_fakes * self.n_inters]
         self.dataset.n_users -= self.n_fakes
-        consumed_time = time.time() - start_time
-        self.consumed_time += consumed_time

@@ -81,7 +81,6 @@ class OptAttacker(BasicAttacker):
                    temp_fake_user_tensor, verbose):
         profiles = gumbel_topk(fake_tensor, self.n_inters, self.tau)
         n_profiles = 1. - profiles
-        profiles = profiles / surrogate_trainer.dataloader.batch_size / (1. + surrogate_trainer.negative_sample_ratio)
         n_profiles = n_profiles / n_profiles.sum() * profiles.sum() * surrogate_trainer.negative_sample_ratio
 
         opt = SGD(surrogate_model.parameters(), lr=self.look_ahead_lr)
@@ -137,6 +136,7 @@ class OptAttacker(BasicAttacker):
         start_time = time.time()
         fake_user_end_indices = list(np.arange(0, self.n_fakes, self.step, dtype=np.int64)) + [self.n_fakes]
         for i_step in range(1, len(fake_user_end_indices)):
+            start_time = time.time()
             fake_nums_str = '{}-{}'.format(fake_user_end_indices[i_step - 1], fake_user_end_indices[i_step])
             print('Start generating fake #{:s} !'.format(fake_nums_str))
             temp_fake_user_tensor = np.arange(fake_user_end_indices[i_step - 1],
@@ -169,7 +169,9 @@ class OptAttacker(BasicAttacker):
                     writer.add_scalar('{:s}_{:s}/Hit_Ratio@{:d}'.format(self.name, fake_nums_str, self.topk),
                                       target_hr, i_round)
             self.choose_filler_items(fake_tensor, temp_fake_user_tensor)
-            print('Fake #{:s} has been generated!'.format(fake_nums_str))
+            consumed_time = time.time() - start_time
+            self.consumed_time += consumed_time
+            print('Fake #{:s} has been generated! Time: {:.3f}s'.format(fake_nums_str, consumed_time))
             gc.collect()
             torch.cuda.empty_cache()
 

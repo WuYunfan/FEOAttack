@@ -133,7 +133,6 @@ class OptAttacker(BasicAttacker):
             self.dataset.n_users += 1
 
     def generate_fake_users(self, verbose=True, writer=None):
-        start_time = time.time()
         fake_user_end_indices = list(np.arange(0, self.n_fakes, self.step, dtype=np.int64)) + [self.n_fakes]
         for i_step in range(1, len(fake_user_end_indices)):
             start_time = time.time()
@@ -179,5 +178,3 @@ class OptAttacker(BasicAttacker):
         self.dataset.val_data = self.dataset.val_data[:-self.n_fakes]
         self.dataset.train_array = self.dataset.train_array[:-self.n_fakes * self.n_inters]
         self.dataset.n_users -= self.n_fakes
-        consumed_time = time.time() - start_time
-        self.consumed_time += consumed_time

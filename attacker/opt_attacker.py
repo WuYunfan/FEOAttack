@@ -92,9 +92,21 @@ class OptAttacker(BasicAttacker):
                 loss_n = F.softplus(scores)
                 loss_p = (loss_p * profiles).sum()
                 loss_n = (loss_n * n_profiles).sum()
-                loss = loss_p + loss_n
-                diffopt.step(loss)
-                vprint('Unroll step {:d}, Train Loss Fake: {:.6f}'.format(s, loss), verbose)
+                loss_fake = loss_p + loss_n
+                diffopt.step(loss_fake)
+
+                loss_normal = 0.
+                for batch_data in surrogate_trainer.dataloader:
+                    inputs = batch_data.to(device=self.device, dtype=torch.int64)
+                    pos_users, pos_items = inputs[:, 0, 0], inputs[:, 0, 1]
+                    inputs = inputs.reshape(-1, 3)
+                    neg_users, neg_items = inputs[:, 0], inputs[:, 2]
+                    pos_scores, neg_scores, _ = fmodel.bce_forward(pos_users, pos_items, neg_users, neg_items)
+                    loss_p = F.softplus(-pos_scores)
+                    loss_n = F.softplus(neg_scores)
+                    loss_normal += loss_p.sum() + loss_n.sum()
+                diffopt.step(loss_normal)
+                vprint('Unroll step {:d}, Train Loss Fake: {:.6f}'.format(s, loss_fake + loss_normal), verbose)
 
             fmodel.eval()
             target_scores, top_scores = self.get_target_item_and_top_scores(fmodel)
@@ -151,6 +163,7 @@ class OptAttacker(BasicAttacker):
                 if i_round % self.n_re_init_rounds == 0:
                     surrogate_model = get_model(self.surrogate_model_config, self.dataset)
                     surrogate_trainer = get_trainer(self.surrogate_trainer_config, surrogate_model)
+                    vprint('Re-initialize surrogate model!', verbose)
                 surrogate_model.train()
                 tn_loss = surrogate_trainer.train_one_epoch(None)
                 tf_loss = self.fake_train(surrogate_trainer, fake_tensor)

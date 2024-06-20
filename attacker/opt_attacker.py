@@ -24,8 +24,8 @@ class OptAttacker(BasicAttacker):
         self.tau = attacker_config.get('tau', 1.)
         self.expected_hr = attacker_config['expected_hr']
         self.step = attacker_config['step']
-        self.n_rounds = attacker_config['n_rounds']
-        self.n_re_init_rounds = attacker_config['n_re_init_rounds']
+        self.n_adv_epochs = attacker_config['n_adv_epochs']
+        self.n_retraining_epochs = attacker_config['n_retraining_epochs']
         self.lr = attacker_config['lr']
         self.reg = attacker_config['reg']
         self.momentum = attacker_config['momentum']
@@ -87,13 +87,12 @@ class OptAttacker(BasicAttacker):
         with higher.innerloop_ctx(surrogate_model, opt) as (fmodel, diffopt):
             fmodel.train()
             for s in range(self.look_ahead_step):
-                scores = fmodel.predict(temp_fake_user_tensor)
-                loss_p = F.softplus(-scores)
-                loss_n = F.softplus(scores)
+                scores, l2_norm_sq = fmodel.forward(temp_fake_user_tensor)
+                loss_p = F.softplus(-scores) + l2_norm_sq * surrogate_trainer.l2_reg
+                loss_n = F.softplus(scores) + l2_norm_sq * surrogate_trainer.l2_reg
                 loss_p = (loss_p * profiles).sum()
                 loss_n = (loss_n * n_profiles).sum()
                 loss_fake = loss_p + loss_n
-                diffopt.step(loss_fake)
 
                 loss_normal = 0.
                 for batch_data in surrogate_trainer.dataloader:
@@ -101,12 +100,12 @@ class OptAttacker(BasicAttacker):
                     pos_users, pos_items = inputs[:, 0, 0], inputs[:, 0, 1]
                     inputs = inputs.reshape(-1, 3)
                     neg_users, neg_items = inputs[:, 0], inputs[:, 2]
-                    pos_scores, neg_scores, _ = fmodel.bce_forward(pos_users, pos_items, neg_users, neg_items)
+                    pos_scores, neg_scores, l2_norm_sq = fmodel.bce_forward(pos_users, pos_items, neg_users, neg_items)
                     loss_p = F.softplus(-pos_scores)
                     loss_n = F.softplus(neg_scores)
-                    loss_normal += loss_p.sum() + loss_n.sum()
-                diffopt.step(loss_normal)
-                vprint('Unroll step {:d}, Train Loss Fake: {:.6f}'.format(s, loss_fake + loss_normal), verbose)
+                    loss_normal += loss_p.sum() + loss_n.sum() + l2_norm_sq.sum() * surrogate_trainer.l2_reg
+                diffopt.step(loss_fake + loss_normal)
+                vprint('Unroll step {:d}, Train Loss: {:.6f}'.format(s, loss_fake + loss_normal), verbose)
 
             fmodel.eval()
             target_scores, top_scores = self.get_target_item_and_top_scores(fmodel)
@@ -144,6 +143,31 @@ class OptAttacker(BasicAttacker):
             self.dataset.train_array += [[f_u, item] for item in filler_items]
             self.dataset.n_users += 1
 
+    def retrain_surrogate(self, fake_tensor, adv_opt, temp_fake_user_tensor, fake_nums_str,
+                          adv_epoch, verbose, writer):
+        surrogate_model = get_model(self.surrogate_model_config, self.dataset)
+        surrogate_trainer = get_trainer(self.surrogate_trainer_config, surrogate_model)
+        for retraining_epoch in range(self.n_retraining_epochs):
+            surrogate_model.train()
+            tn_loss = surrogate_trainer.train_one_epoch(None)
+            tf_loss = self.fake_train(surrogate_trainer, fake_tensor)
+            adv_loss = self.train_fake(surrogate_model, surrogate_trainer, fake_tensor, adv_opt,
+                                       temp_fake_user_tensor, verbose)
+
+            target_hr = get_target_hr(surrogate_model, self.target_user_loader, self.target_item_tensor, self.topk)
+            vprint('Adversarial Epoch {:d}/{:d}, Retraining Epoch {:d}/{:d}, '
+                   'Train Loss Normal: {:.6f}, Train Loss Fake: {:.6f}, '
+                   'Adversarial Loss: {:.6f}, Target Hit Ratio {:.6f}%'.
+                   format(adv_epoch, self.n_adv_epochs, retraining_epoch, self.n_retraining_epochs,
+                          tn_loss, tf_loss, adv_loss, target_hr * 100.), verbose)
+            global_retraining_epoch = adv_epoch * self.n_retraining_epochs + retraining_epoch
+            writer_tag = '{:s}_{:s}'.format(self.name, fake_nums_str)
+            if writer:
+                writer.add_scalar(writer_tag + '/Train_Loss_Normal', tn_loss, global_retraining_epoch)
+                writer.add_scalar(writer_tag + '/Train_Loss_Fake', tf_loss, global_retraining_epoch)
+                writer.add_scalar(writer_tag + '/Adv_Loss', adv_loss, global_retraining_epoch)
+                writer.add_scalar(writer_tag + '/Hit_Ratio@' + str(self.topk), target_hr, global_retraining_epoch)
+
     def generate_fake_users(self, verbose=True, writer=None):
         fake_user_end_indices = list(np.arange(0, self.n_fakes, self.step, dtype=np.int64)) + [self.n_fakes]
         for i_step in range(1, len(fake_user_end_indices)):
@@ -159,27 +183,10 @@ class OptAttacker(BasicAttacker):
             fake_tensor = self.init_fake_tensor(n_temp_fakes)
             adv_opt = SGD([fake_tensor], lr=self.lr, momentum=self.momentum)
 
-            for i_round in range(self.n_rounds):
-                if i_round % self.n_re_init_rounds == 0:
-                    surrogate_model = get_model(self.surrogate_model_config, self.dataset)
-                    surrogate_trainer = get_trainer(self.surrogate_trainer_config, surrogate_model)
-                    vprint('Re-initialize surrogate model!', verbose)
-                surrogate_model.train()
-                tn_loss = surrogate_trainer.train_one_epoch(None)
-                tf_loss = self.fake_train(surrogate_trainer, fake_tensor)
-                adv_loss = self.train_fake(surrogate_model, surrogate_trainer, fake_tensor, adv_opt,
-                                           temp_fake_user_tensor, verbose)
+            for adv_epoch in range(self.n_adv_epochs):
+                self.retrain_surrogate(fake_tensor, adv_opt, temp_fake_user_tensor, fake_nums_str,
+                                       adv_epoch, verbose, writer)
 
-                target_hr = get_target_hr(surrogate_model, self.target_user_loader, self.target_item_tensor, self.topk)
-                vprint('Round {:d}/{:d}, Train Loss Normal: {:.6f}, Train Loss Fake: {:.6f}, '
-                       'Adversarial Loss: {:.6f}, Target Hit Ratio {:.6f}%'.
-                       format(i_round, self.n_rounds, tn_loss, tf_loss, adv_loss, target_hr * 100.), verbose)
-                if writer:
-                    writer.add_scalar('{:s}_{:s}/Train_Loss_Normal'.format(self.name, fake_nums_str), tn_loss, i_round)
-                    writer.add_scalar('{:s}_{:s}/Train_Loss_Fake'.format(self.name, fake_nums_str), tf_loss, i_round)
-                    writer.add_scalar('{:s}_{:s}/Adv_Loss'.format(self.name, fake_nums_str), adv_loss, i_round)
-                    writer.add_scalar('{:s}_{:s}/Hit_Ratio@{:d}'.format(self.name, fake_nums_str, self.topk),
-                                      target_hr, i_round)
             self.choose_filler_items(fake_tensor, temp_fake_user_tensor)
             consumed_time = time.time() - start_time
             self.consumed_time += consumed_time

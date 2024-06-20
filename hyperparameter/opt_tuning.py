@@ -27,7 +27,7 @@ def objective(trial):
                                 'n_epochs': 0, 'batch_size': 2 ** 14, 'dataloader_num_workers': 6,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
     attacker_config = {'name': 'OptAttacker', 'n_fakes': 131, 'topk': 50,
-                       'n_inters': 41, 'expected_hr': 0.05, 'step': 131, 'n_rounds': 200, 'n_re_init_rounds': 10,
+                       'n_inters': 41, 'expected_hr': 0.05, 'step': 131, 'n_adv_epochs': 20, 'n_retraining_epochs': 10,
                        'look_ahead_step': 5, 'look_ahead_lr': look_ahead_lr,
                        'lr': lr, 'reg': reg, 'momentum': momentum,
                        'surrogate_model_config': surrogate_model_config,

@@ -150,7 +150,7 @@ def get_target_hr(surrogate_model, target_user_loader, target_item_tensor, topk)
 
 
 def goal_oriented_loss(target_scores, top_scores, expected_hr):
-    loss = -F.softplus(torch.relu(top_scores - target_scores))
+    loss = -F.softplus(F.selu(top_scores.detach() - target_scores))
     n_target_hits = int(expected_hr * loss.shape[0] * loss.shape[1])
     bottom_loss = loss.reshape(-1).topk(n_target_hits).values
     bottom_loss = -bottom_loss
@@ -173,10 +173,8 @@ def gumbel_topk(logits, topk, tau):
 class AttackDataset(Dataset):
     def __init__(self, profiles, n_profiles, n_existing_users, negative_sample_ratio):
         self.length = int(profiles.sum().item())
-        profiles = profiles.detach().cpu().numpy()
-        self.profiles = profiles / np.sum(profiles, axis=1)[:, None]
-        n_profiles = n_profiles.detach().cpu().numpy()
-        self.n_profiles = n_profiles / np.sum(n_profiles, axis=1)[:, None]
+        self.profiles = F.normalize(profiles, p=1, dim=1).detach().cpu().numpy()
+        self.n_profiles = F.normalize(n_profiles, p=1, dim=1).detach().cpu().numpy()
         self.n_existing_users = n_existing_users
         self.negative_sample_ratio = negative_sample_ratio
         self.n_fakes = profiles.shape[0]

@@ -36,7 +36,7 @@ class OptAttacker(BasicAttacker):
         self.target_item_tensor = torch.tensor(self.target_items, dtype=torch.int64, device=self.device)
         target_users = TensorDataset(torch.arange(self.n_users, dtype=torch.int64, device=self.device))
         self.target_user_loader = DataLoader(target_users, batch_size=self.surrogate_trainer_config['test_batch_size'],
-                                             shuffle=True)
+                                             shuffle=False)
 
     def construct_candidates(self):
         data_mat = sp.coo_matrix((np.ones((len(self.dataset.train_array),)), np.array(self.dataset.train_array).T),
@@ -57,7 +57,7 @@ class OptAttacker(BasicAttacker):
             users = users[0]
             scores = surrogate_model.predict(users)
             target_scores.append(scores[:, self.target_item_tensor])
-            top_scores.append(scores.topk(self.topk).values[:, -1:])
+            top_scores.append(scores.topk(self.topk, dim=1).values[:, -1:])
         target_scores = torch.cat(target_scores, dim=0)
         top_scores = torch.cat(top_scores, dim=0)
         return target_scores, top_scores
@@ -148,6 +148,8 @@ class OptAttacker(BasicAttacker):
         surrogate_model = get_model(self.surrogate_model_config, self.dataset)
         surrogate_trainer = get_trainer(self.surrogate_trainer_config, surrogate_model)
         for retraining_epoch in range(self.n_retraining_epochs):
+            start_time = time.time()
+
             surrogate_model.train()
             tn_loss = surrogate_trainer.train_one_epoch(None)
             tf_loss = self.fake_train(surrogate_trainer, fake_tensor)
@@ -155,10 +157,11 @@ class OptAttacker(BasicAttacker):
                                        temp_fake_user_tensor, verbose)
 
             target_hr = get_target_hr(surrogate_model, self.target_user_loader, self.target_item_tensor, self.topk)
-            vprint('Adversarial Epoch {:d}/{:d}, Retraining Epoch {:d}/{:d}, '
+            consumed_time = time.time() - start_time
+            vprint('Adversarial Epoch {:d}/{:d}, Retraining Epoch {:d}/{:d}, Time: {:.3f} '
                    'Train Loss Normal: {:.6f}, Train Loss Fake: {:.6f}, '
                    'Adversarial Loss: {:.6f}, Target Hit Ratio {:.6f}%'.
-                   format(adv_epoch, self.n_adv_epochs, retraining_epoch, self.n_retraining_epochs,
+                   format(adv_epoch, self.n_adv_epochs, retraining_epoch, self.n_retraining_epochs, consumed_time,
                           tn_loss, tf_loss, adv_loss, target_hr * 100.), verbose)
             global_retraining_epoch = adv_epoch * self.n_retraining_epochs + retraining_epoch
             writer_tag = '{:s}_{:s}'.format(self.name, fake_nums_str)

@@ -5,7 +5,7 @@ from attacker.basic_attacker import BasicAttacker
 from attacker.dpa2dl_attacker import DPA2DLAttacker
 from attacker.revadv_attacker import RevAdvAttacker
 from attacker.pga_attacker import PGAAttacker
-from attacker.opt_attacker import OptAttacker
+from attacker.flojo_attacker import FLOJOAttacker
 
 
 def get_attacker(config, dataset):

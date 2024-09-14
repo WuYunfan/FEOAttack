@@ -13,23 +13,17 @@ import numpy as np
 
 
 def objective(trial):
+    s_l2 = trial.suggest_categorical('s_l2', [1.e-3, 1.e-2, 1.e-1])
     s_lr = trial.suggest_categorical('s_lr', [1.e-2, 1.e-1])
-    s_l2 = trial.suggest_categorical('s_l2', [1.e-4, 1.e-3, 1.e-2])
-    look_ahead_lr = trial.suggest_categorical('look_ahead_lr', [1.e-2, 1.e-1])
-    lr = trial.suggest_categorical('lr', [2.])
-    reg = trial.suggest_categorical('reg', [0.25])
-    momentum = trial.suggest_categorical('momentum', [0.95])
     set_seed(2023)
     device = torch.device('cuda')
     dataset_config, model_config, trainer_config = get_config(device)[0]
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
     surrogate_trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': s_lr, 'l2_reg': s_l2,
-                                'n_epochs': 0, 'batch_size': 2 ** 12, 'dataloader_num_workers': 6,
+                                'n_epochs': 5, 'batch_size': 2 ** 12, 'dataloader_num_workers': 6,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
-    attacker_config = {'name': 'FLOJOAttacker', 'n_fakes': 131, 'topk': 50,
-                       'n_inters': 41, 'expected_hr': 0.05, 'step': 131, 'n_adv_epochs': 20, 'n_retraining_epochs': 10,
-                       'look_ahead_step': 5, 'look_ahead_lr': look_ahead_lr,
-                       'lr': lr, 'reg': reg, 'momentum': momentum,
+    attacker_config = {'name': 'RAPURAttacker', 'n_fakes': 131, 'topk': 50,
+                       'n_inters': 41,  'step': 5, 'top_rate': 0.1,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
 
@@ -48,7 +42,7 @@ def main():
     init_run(log_path, 2023)
 
     optuna.logging.get_logger('optuna').addHandler(logging.StreamHandler(sys.stdout))
-    study_name = 'flojo-tuning'
+    study_name = 'rapur-tuning'
     storage = optuna.storages.RDBStorage(url='sqlite:///../{}.db'.format(study_name))
     study = optuna.create_study(study_name=study_name, storage=storage, load_if_exists=True, direction='maximize',
                                 sampler=optuna.samplers.BruteForceSampler())

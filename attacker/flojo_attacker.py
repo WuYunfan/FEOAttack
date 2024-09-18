@@ -79,9 +79,15 @@ class FLOJOAttacker(BasicAttacker):
 
     def train_fake(self, surrogate_model, surrogate_trainer, fake_tensor, adv_opt,
                    temp_fake_user_tensor, verbose):
-        profiles = gumbel_topk(fake_tensor, self.n_inters, self.tau)
+        profiles = gumbel_topk(fake_tensor, self.n_inters, self.tau, hard=False)
+        n_samples = profiles.sum()
+        n_valid_fakes = torch.gt(profiles, 0).any(dim=1).float().sum()
+        weight_per_fake = n_samples / n_valid_fakes
+
+        profiles = profiles - torch.maximum(profiles.detach() - 1, torch.zeros_like(profiles))
         n_profiles = 1. - profiles
-        n_profiles = n_profiles / n_profiles.sum() * profiles.sum() * surrogate_trainer.negative_sample_ratio
+        profiles = F.normalize(profiles, p=1, dim=1) * weight_per_fake
+        n_profiles = F.normalize(n_profiles, p=1, dim=1) * weight_per_fake * surrogate_trainer.negative_sample_ratio
 
         opt = SGD(surrogate_model.parameters(), lr=self.look_ahead_lr)
         with higher.innerloop_ctx(surrogate_model, opt) as (fmodel, diffopt):
@@ -151,14 +157,16 @@ class FLOJOAttacker(BasicAttacker):
             start_time = time.time()
 
             surrogate_model.train()
-            tn_loss = surrogate_trainer.train_one_epoch(None)
-            tf_loss = self.fake_train(surrogate_trainer, fake_tensor)
             adv_loss = self.train_fake(surrogate_model, surrogate_trainer, fake_tensor, adv_opt,
                                        temp_fake_user_tensor, verbose)
+            tn_loss = surrogate_trainer.train_one_epoch(None)
+            tf_loss = self.fake_train(surrogate_trainer, fake_tensor)
+            if retraining_epoch == self.n_retraining_epochs:
+                self.train_fake(surrogate_model, surrogate_trainer, fake_tensor, adv_opt, temp_fake_user_tensor, verbose)
 
             target_hr = get_target_hr(surrogate_model, self.target_user_loader, self.target_item_tensor, self.topk)
             consumed_time = time.time() - start_time
-            vprint('Adversarial Epoch {:d}/{:d}, Retraining Epoch {:d}/{:d}, Time: {:.3f} '
+            vprint('Adversarial Epoch {:d}/{:d}, Retraining Epoch {:d}/{:d}, Time: {:.3f}s, '
                    'Train Loss Normal: {:.6f}, Train Loss Fake: {:.6f}, '
                    'Adversarial Loss: {:.6f}, Target Hit Ratio {:.6f}%'.
                    format(adv_epoch, self.n_adv_epochs, retraining_epoch, self.n_retraining_epochs, consumed_time,

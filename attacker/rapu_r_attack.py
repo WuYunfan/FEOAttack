@@ -74,8 +74,7 @@ class RAPURAttacker(BasicAttacker):
 
             surrogate_model = get_model(self.surrogate_model_config, self.dataset)
             surrogate_trainer = get_trainer(self.surrogate_trainer_config, surrogate_model)
-            surrogate_trainer.train(verbose=verbose)
-            os.remove(surrogate_trainer.save_path)
+            surrogate_trainer.train(verbose=verbose, save=False)
 
             target_hr = get_target_hr(surrogate_model, self.target_user_loader, self.target_item_tensor, self.topk)
             vprint('Target Hit Ratio {:.6f}%'. format(target_hr * 100.), verbose)

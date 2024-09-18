@@ -86,7 +86,7 @@ class RevAdvAttacker(GradientAttacker):
         self.surrogate_trainer.initialize_optimizer()
         self.surrogate_trainer.merge_fake_tensor(self.fake_tensor)
 
-        self.surrogate_trainer.train(verbose=False)
+        self.surrogate_trainer.train(verbose=False, save=False)
         with higher.innerloop_ctx(self.surrogate_model, self.surrogate_trainer.opt) as (fmodel, diffopt):
             fmodel.train()
             for _ in range(self.unroll_steps):

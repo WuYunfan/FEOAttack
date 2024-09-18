@@ -58,7 +58,7 @@ class BasicTrainer:
                                   .format(self.model.name, self.name, stage, metric, k)
                                   , metrics[metric][k], epoch)
 
-    def train(self, verbose=True, writer=None):
+    def train(self, verbose=True, writer=None, save=True):
         self.dataset.negative_sample_ratio = self.negative_sample_ratio
         if not os.path.exists('checkpoints'): os.mkdir('checkpoints')
         patience = self.max_patience
@@ -100,6 +100,8 @@ class BasicTrainer:
 
         if self.save_path is not None:
             self.model.load(self.save_path)
+            if not save:
+                os.remove(self.save_path)
             print('Best NDCG {:.3f}'.format(self.best_ndcg), ', reload the best model.')
         train_consumed_time = time.time() - train_start_time
         print('Total consumed time of training {:.3f}s'.format(train_consumed_time))

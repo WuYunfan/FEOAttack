@@ -15,7 +15,7 @@ import numpy as np
 def objective(trial):
     s_lr = trial.suggest_categorical('s_lr', [1.e-2, 1.e-1])
     s_l2 = trial.suggest_categorical('s_l2', [1.e-4, 1.e-3, 1.e-2])
-    look_ahead_lr = trial.suggest_categorical('look_ahead_lr', [1.e-2, 1.e-1])
+    look_ahead_lr = trial.suggest_categorical('look_ahead_lr', [1.e-2])
     lr = trial.suggest_categorical('lr', [2.])
     reg = trial.suggest_categorical('reg', [0.25])
     momentum = trial.suggest_categorical('momentum', [0.95])

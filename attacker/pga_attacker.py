@@ -22,7 +22,7 @@ class PGAAttacker(GradientAttacker):
         self.surrogate_model.initial_embeddings()
         self.surrogate_trainer.initialize_optimizer()
         self.surrogate_trainer.merge_fake_tensor(self.fake_tensor)
-        self.surrogate_trainer.train(verbose=False)
+        self.surrogate_trainer.train(verbose=False, save=False)
 
         self.surrogate_model.eval()
         scores = self.surrogate_model.predict(self.target_user_tensor)

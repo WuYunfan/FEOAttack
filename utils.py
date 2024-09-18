@@ -171,9 +171,10 @@ def gumbel_topk(logits, topk, tau, hard=True):
 
 
 class AttackDataset(Dataset):
-    def __init__(self, profiles, n_profiles, n_existing_users, negative_sample_ratio):
+    def __init__(self, profiles, n_existing_users, negative_sample_ratio):
         self.length = int(profiles.sum().item())
         self.profiles = F.normalize(profiles, p=1, dim=1).detach().cpu().numpy()
+        n_profiles = 1 - profiles
         self.n_profiles = F.normalize(n_profiles, p=1, dim=1).detach().cpu().numpy()
         self.n_existing_users = n_existing_users
         self.negative_sample_ratio = negative_sample_ratio

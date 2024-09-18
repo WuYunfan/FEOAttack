@@ -30,11 +30,11 @@ class BasicAttacker:
 
     def eval(self, model_config, trainer_config, verbose=True, writer=None, retrain=True):
         if self.dataset.attack_data is None:
-            self.dataset.attack_data = [[] for _ in range(self.n_users)]
+            self.dataset.attack_data = [set() for _ in range(self.n_users)]
             for u in range(self.n_users):
                 for item in self.target_items:
                     if item not in self.dataset.train_data[u]:
-                        self.dataset.attack_data[u].append(item)
+                        self.dataset.attack_data[u].add(item)
 
             for fake_u in range(self.n_fakes):
                 items = self.fake_user_inters[fake_u]
@@ -44,7 +44,7 @@ class BasicAttacker:
                 val_items = items[self.n_train_inters:]
                 self.dataset.train_data.append(set(train_items))
                 self.dataset.val_data.append(set(val_items))
-                self.dataset.attack_data.append([])
+                self.dataset.attack_data.append(set())
                 self.dataset.train_array.extend([[fake_u + self.n_users, item] for item in train_items])
             self.dataset.n_users += self.n_fakes
 

@@ -65,8 +65,7 @@ class FLOJOAttacker(BasicAttacker):
     def fake_train(self, surrogate_trainer, fake_tensor):
         with torch.no_grad():
             profiles = gumbel_topk(fake_tensor, self.n_inters, self.tau)
-        n_profiles = 1. - profiles
-        attack_dataset = AttackDataset(profiles, n_profiles, self.dataset.n_users,
+        attack_dataset = AttackDataset(profiles, self.dataset.n_users,
                                        surrogate_trainer.negative_sample_ratio)
         attack_dataloader = DataLoader(attack_dataset, batch_size=surrogate_trainer.dataloader.batch_size,
                                        num_workers=surrogate_trainer.dataloader.num_workers,

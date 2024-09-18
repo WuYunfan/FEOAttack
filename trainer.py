@@ -58,7 +58,7 @@ class BasicTrainer:
                                   .format(self.model.name, self.name, stage, metric, k)
                                   , metrics[metric][k], epoch)
 
-    def train(self, verbose=True, writer=None, save=True):
+    def train(self, verbose=True, writer=None, save=True, extra_eval=None):
         self.dataset.negative_sample_ratio = self.negative_sample_ratio
         if not os.path.exists('checkpoints'): os.mkdir('checkpoints')
         patience = self.max_patience
@@ -74,6 +74,9 @@ class BasicTrainer:
                 writer.add_scalar('{:s}_{:s}/train_loss'.format(self.model.name, self.name), loss, epoch)
             if (epoch + 1) % self.val_interval != 0:
                 continue
+
+            if extra_eval is not None:
+                extra_eval[0](self, *extra_eval[1])
 
             start_time = time.time()
             results, metrics = self.eval('val')

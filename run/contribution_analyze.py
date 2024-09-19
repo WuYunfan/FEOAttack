@@ -1,3 +1,5 @@
+from torch.backends.mkl import verbose
+
 from utils import init_run, get_target_items, AttackDataset
 from config import get_gowalla_config as get_config
 from config import get_gowalla_attacker_config as get_attacker_config
@@ -35,7 +37,7 @@ def main():
     dataset_config, model_config, trainer_config = get_config(device)[0]
     trainer_config['lr'] = 0.01
     trainer_config['n_epochs'] = 100
-    attacker_config = get_attacker_config()[3]
+    attacker_config = get_attacker_config()[4]
 
     dataset = get_dataset(dataset_config)
     target_items = get_target_items(dataset)
@@ -43,12 +45,12 @@ def main():
     attacker_config['target_items'] = target_items
     attacker = get_attacker(attacker_config, dataset)
 
-    if not os.path.exists('fake_user.json'):
+    if not os.path.exists('fake_user_inters.json'):
         attacker.generate_fake_users()
-        with open('data.json', 'w') as f:
+        with open('fake_user_inters.json', 'w') as f:
             json.dump(attacker.fake_user_inters, f)
     else:
-        with open('data.json', 'r') as f:
+        with open('fake_user_inters.json', 'r') as f:
             attacker.fake_user_inters = json.load(f)
 
     fake_user_inters = attacker.fake_user_inters
@@ -57,9 +59,9 @@ def main():
     for fake_inters in fake_user_inters:
         attacker.fake_user_inters = [fake_inters for _ in range(attacker.n_fakes)]
         attacker.dataset = get_dataset(dataset_config)
+        attacker.inject_fake_users()
         attacker.model = get_model(model_config, attacker.dataset)
         attacker.trainer = get_trainer(trainer_config, attacker.model)
-        attacker.eval(model_config, trainer_config, verbose=False, retrain=False)
 
         profiles = torch.zeros([attacker.n_fakes, attacker.n_items], device=device, dtype=torch.float)
         for f_idx in range(attacker.n_fakes):
@@ -69,7 +71,7 @@ def main():
         contributions = []
         extra_eval = (contribution_eval, (profiles, attacker.n_users, contributions))
 
-        attacker.trainer.train(extra_eval=extra_eval)
+        attacker.trainer.train(extra_eval=extra_eval, verbose=False)
         final_recalls.append(attacker.trainer.eval('attack')[1]['Recall'][attacker.topk])
         contribution_records.append(contributions)
     np.savez('contribution_analyze.npz', np.array(final_recalls), np.array(contribution_records))

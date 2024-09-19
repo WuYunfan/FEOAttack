@@ -28,7 +28,7 @@ class BasicAttacker:
     def generate_fake_users(self, verbose=True, writer=None):
         raise NotImplementedError
 
-    def eval(self, model_config, trainer_config, verbose=True, writer=None, retrain=True):
+    def inject_fake_users(self):
         if self.dataset.attack_data is None:
             self.dataset.attack_data = [set() for _ in range(self.n_users)]
             for u in range(self.n_users):
@@ -47,6 +47,9 @@ class BasicAttacker:
                 self.dataset.attack_data.append(set())
                 self.dataset.train_array.extend([[fake_u + self.n_users, item] for item in train_items])
             self.dataset.n_users += self.n_fakes
+
+    def eval(self, model_config, trainer_config, verbose=True, writer=None, retrain=True):
+        self.inject_fake_users()
 
         if self.model is None or retrain:
             self.model = get_model(model_config, self.dataset)

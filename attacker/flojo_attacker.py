@@ -78,20 +78,21 @@ class FLOJOAttacker(BasicAttacker):
 
     def train_fake(self, surrogate_model, surrogate_trainer, fake_tensor, adv_opt,
                    temp_fake_user_tensor, verbose):
-        profiles = gumbel_topk(fake_tensor, self.n_inters, self.tau, hard=False)
-        n_samples = profiles.sum()
-        n_valid_fakes = torch.gt(profiles, 0).any(dim=1).float().sum()
-        weight_per_fake = n_samples / n_valid_fakes
-
-        profiles = profiles - torch.maximum(profiles.detach() - 1, torch.zeros_like(profiles))
-        n_profiles = 1. - profiles
-        profiles = F.normalize(profiles, p=1, dim=1) * weight_per_fake
-        n_profiles = F.normalize(n_profiles, p=1, dim=1) * weight_per_fake * surrogate_trainer.negative_sample_ratio
-
         opt = SGD(surrogate_model.parameters(), lr=self.look_ahead_lr)
         with higher.innerloop_ctx(surrogate_model, opt) as (fmodel, diffopt):
             fmodel.train()
             for s in range(self.look_ahead_step):
+                profiles = gumbel_topk(fake_tensor, self.n_inters, self.tau, hard=False)
+                n_samples = profiles.sum()
+                n_valid_fakes = torch.gt(profiles, 0).any(dim=1).float().sum()
+                weight_per_fake = n_samples / n_valid_fakes
+
+                profiles = profiles - torch.maximum(profiles.detach() - 1, torch.zeros_like(profiles))
+                n_profiles = 1. - profiles
+                profiles = F.normalize(profiles, p=1, dim=1) * weight_per_fake
+                n_profiles = F.normalize(n_profiles, p=1,
+                                         dim=1) * weight_per_fake * surrogate_trainer.negative_sample_ratio
+
                 scores, l2_norm_sq = fmodel.forward(temp_fake_user_tensor)
                 loss_p = F.softplus(-scores) + l2_norm_sq * surrogate_trainer.l2_reg
                 loss_n = F.softplus(scores) + l2_norm_sq * surrogate_trainer.l2_reg
@@ -100,7 +101,10 @@ class FLOJOAttacker(BasicAttacker):
                 loss_fake = loss_p + loss_n
 
                 loss_normal = 0.
-                for batch_data in surrogate_trainer.dataloader:
+                dataloader = DataLoader(surrogate_trainer.dataset, batch_size=surrogate_trainer.dataloader.batch_size * 8,
+                                        num_workers=surrogate_trainer.dataloader.num_workers,
+                                        persistent_workers=False, pin_memory=False)
+                for batch_data in dataloader:
                     inputs = batch_data.to(device=self.device, dtype=torch.int64)
                     pos_users, pos_items = inputs[:, 0, 0], inputs[:, 0, 1]
                     inputs = inputs.reshape(-1, 3)
@@ -129,7 +133,7 @@ class FLOJOAttacker(BasicAttacker):
 
     def init_fake_tensor(self, n_temp_fakes):
         sample_idxes = torch.randint(self.candidate_mat.shape[0], size=[n_temp_fakes])
-        fake_tensor = torch.tensor(self.candidate_mat[sample_idxes].toarray(), dtype=torch.float32, device=self.device)
+        fake_tensor = torch.tensor(self.candidate_mat[sample_idxes].toarray() * 5., dtype=torch.float32, device=self.device)
         fake_tensor.requires_grad = True
         return fake_tensor
 
@@ -161,7 +165,8 @@ class FLOJOAttacker(BasicAttacker):
             tn_loss = surrogate_trainer.train_one_epoch(None)
             tf_loss = self.fake_train(surrogate_trainer, fake_tensor)
             if retraining_epoch == self.n_retraining_epochs:
-                self.train_fake(surrogate_model, surrogate_trainer, fake_tensor, adv_opt, temp_fake_user_tensor, verbose)
+                self.train_fake(surrogate_model, surrogate_trainer, fake_tensor, adv_opt, temp_fake_user_tensor,
+                                verbose)
 
             target_hr = get_target_hr(surrogate_model, self.target_user_loader, self.target_item_tensor, self.topk)
             consumed_time = time.time() - start_time

@@ -1,4 +1,4 @@
-from utils import init_run, get_target_items, AttackDataset
+from utils import init_run, get_target_items, AttackDataset, set_seed
 from config import get_gowalla_config as get_config
 from config import get_gowalla_attacker_config as get_attacker_config
 import torch
@@ -16,42 +16,15 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from scipy.stats import pearsonr
 
-def contribution_eval(trainer, profiles, n_users, contributions):
-    trainer = copy.deepcopy(trainer)
-    before_recall = trainer.eval('attack')[1]['Recall'][trainer.topks[0]]
+def attack_eval(trainer, recalls):
+    recalls.append(trainer.eval('attack')[1]['Recall'][trainer.topks[0]])
 
-    attack_dataset = AttackDataset(profiles, n_users, trainer.negative_sample_ratio)
-    attack_dataloader = DataLoader(attack_dataset, batch_size=trainer.dataloader.batch_size,
-                                   num_workers=trainer.dataloader.num_workers,
-                                   persistent_workers=False, pin_memory=False)
-    trainer.dataloader = attack_dataloader
-    trainer.train_one_epoch(None)
-    after_recall = trainer.eval('attack')[1]['Recall'][trainer.topks[0]]
-    contributions.append(after_recall - before_recall)
+def analyze(recall_records):
+    print(recall_records.shape)
 
-def analyze(final_recalls, contribution_records):
-    print(final_recalls.shape)
-    print(contribution_records.shape)
-
-    pdf = PdfPages('contribution_epoch.pdf')
+    pdf = PdfPages('recall_epoch.pdf')
     fig, ax = plt.subplots(constrained_layout=True, figsize=(9, 4))
-    ax.plot(contribution_records.mean(axis=0))
-    ax.grid(True, which='major', linestyle='--', linewidth=0.8)
-    ax.minorticks_on()
-    ax.tick_params(which='both', direction='in')
-    ax.xaxis.set_ticks_position('both')
-    ax.yaxis.set_ticks_position('both')
-    pdf.savefig()
-    plt.close(fig)
-    pdf.close()
-
-    correlations = []
-    for i in range(contribution_records.shape[1]):
-        correlations.append(pearsonr(final_recalls, contribution_records[:, i]).statistic)
-    print(correlations[:10])
-    pdf = PdfPages('contribution_sim.pdf')
-    fig, ax = plt.subplots(constrained_layout=True, figsize=(9, 4))
-    ax.plot(correlations)
+    ax.plot(recall_records.mean(axis=0))
     ax.grid(True, which='major', linestyle='--', linewidth=0.8)
     ax.minorticks_on()
     ax.tick_params(which='both', direction='in')
@@ -62,10 +35,9 @@ def analyze(final_recalls, contribution_records):
     pdf.close()
 
 def main():
-    if os.path.exists('time_analyze.npz'):
-        data = np.load('time_analyze.npz')
-        final_recalls, contribution_records = data['arr_0'], data['arr_1']
-        analyze(final_recalls, contribution_records)
+    if os.path.exists('time_analyze.npy'):
+        recall_records = np.load('time_analyze.npz')
+        analyze(recall_records)
         return
 
     log_path = __file__[:-3]
@@ -92,28 +64,23 @@ def main():
     print('Fake users have been generated!')
 
     fake_user_inters = attacker.fake_user_inters
-    final_recalls = []
-    contribution_records = []
+    recall_records = []
     for i, fake_inters in enumerate(fake_user_inters):
+        set_seed(2023)
         attacker.fake_user_inters = [fake_inters for _ in range(attacker.n_fakes)]
         attacker.dataset = get_dataset(dataset_config)
         attacker.inject_fake_users()
         attacker.model = get_model(model_config, attacker.dataset)
         attacker.trainer = get_trainer(trainer_config, attacker.model)
 
-        profiles = torch.zeros([attacker.n_fakes, attacker.n_items], device=device, dtype=torch.float)
-        for f_idx in range(attacker.n_fakes):
-            train_items = list(attacker.dataset.train_data[attacker.n_users + f_idx])
-            train_items = torch.tensor(train_items, device=device, dtype=torch.int64)
-            profiles[f_idx, train_items] = 1.
-        contributions = []
-        extra_eval = (contribution_eval, (profiles, attacker.n_users, contributions))
+        recalls = []
+        extra_eval = (attack_eval, (recalls, ))
 
         attacker.trainer.train(extra_eval=extra_eval, verbose=False)
-        final_recalls.append(attacker.trainer.eval('attack')[1]['Recall'][attacker.topk])
-        contribution_records.append(contributions)
+        recalls.append(attacker.trainer.eval('attack')[1]['Recall'][attacker.topk])
+        recall_records.append(recalls)
         print('Finish evaluating fake user {:d}.'.format(i + 1))
-    np.savez('time_analyze.npz', np.array(final_recalls), np.array(contribution_records))
+    np.save('time_analyze.npy', np.array(recall_records))
 
 
 if __name__ == '__main__':

@@ -18,6 +18,7 @@ def objective(trial):
     look_ahead_lr = trial.suggest_categorical('look_ahead_lr', [1.e-2])
     lr = trial.suggest_categorical('lr', [0.3, 1., 3.])
     reg = trial.suggest_categorical('reg', [0.05])
+    momentum = trial.suggest_categorical('momentum', [0.95])
     set_seed(2023)
     device = torch.device('cuda')
     dataset_config, model_config, trainer_config = get_config(device)[0]
@@ -28,7 +29,7 @@ def objective(trial):
     attacker_config = {'name': 'FLOJOAttacker', 'n_fakes': 131, 'topk': 50,
                        'n_inters': 41, 'expected_hr': 0.05, 'step': 131, 'n_adv_epochs': 20, 'n_retraining_epochs': 10,
                        'look_ahead_step': 5, 'look_ahead_lr': look_ahead_lr,
-                       'lr': lr, 'reg': reg,
+                       'lr': lr, 'reg': reg, 'momentum': momentum,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
 

@@ -64,6 +64,9 @@ class BasicTrainer:
         patience = self.max_patience
         train_start_time = time.time()
         for epoch in range(self.n_epochs):
+            if extra_eval is not None:
+                extra_eval[0](self, *extra_eval[1])
+
             start_time = time.time()
             self.model.train()
             loss = self.train_one_epoch(epoch)
@@ -74,9 +77,6 @@ class BasicTrainer:
                 writer.add_scalar('{:s}_{:s}/train_loss'.format(self.model.name, self.name), loss, epoch)
             if (epoch + 1) % self.val_interval != 0:
                 continue
-
-            if extra_eval is not None:
-                extra_eval[0](self, *extra_eval[1])
 
             start_time = time.time()
             results, metrics = self.eval('val')

@@ -101,10 +101,7 @@ class FLOJOAttacker(BasicAttacker):
                 loss_fake = loss_p + loss_n
 
                 loss_normal = 0.
-                dataloader = DataLoader(surrogate_trainer.dataset, batch_size=surrogate_trainer.dataloader.batch_size * 8,
-                                        num_workers=surrogate_trainer.dataloader.num_workers,
-                                        persistent_workers=False, pin_memory=False)
-                for batch_data in dataloader:
+                for batch_data in surrogate_trainer.dataloader:
                     inputs = batch_data.to(device=self.device, dtype=torch.int64)
                     pos_users, pos_items = inputs[:, 0, 0], inputs[:, 0, 1]
                     inputs = inputs.reshape(-1, 3)
@@ -196,7 +193,7 @@ class FLOJOAttacker(BasicAttacker):
 
             self.surrogate_model_config['n_fakes'] = n_temp_fakes
             fake_tensor = self.init_fake_tensor(n_temp_fakes)
-            adv_opt = SGD([fake_tensor], lr=self.lr, momentum=self.momentum)
+            adv_opt = Adam([fake_tensor], lr=self.lr)
 
             for adv_epoch in range(self.n_adv_epochs):
                 self.retrain_surrogate(fake_tensor, adv_opt, temp_fake_user_tensor, fake_nums_str,

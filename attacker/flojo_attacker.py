@@ -193,7 +193,7 @@ class FLOJOAttacker(BasicAttacker):
 
             self.surrogate_model_config['n_fakes'] = n_temp_fakes
             fake_tensor = self.init_fake_tensor(n_temp_fakes)
-            adv_opt = SGD([fake_tensor], lr=self.lr)
+            adv_opt = SGD([fake_tensor], lr=self.lr, momentum=self.momentum)
 
             for adv_epoch in range(self.n_adv_epochs):
                 self.retrain_surrogate(fake_tensor, adv_opt, temp_fake_user_tensor, fake_nums_str,

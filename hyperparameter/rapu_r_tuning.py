@@ -13,8 +13,8 @@ import numpy as np
 
 
 def objective(trial):
-    s_l2 = trial.suggest_categorical('s_l2', [1.e-3, 1.e-2, 1.e-1])
-    s_lr = trial.suggest_categorical('s_lr', [1.e-2, 1.e-1])
+    s_l2 = trial.suggest_categorical('s_l2', [1.e-4, 1.e-3, 1.e-2])
+    s_lr = trial.suggest_categorical('s_lr', [1.e-3, 1.e-2, 1.e-1])
     set_seed(2023)
     device = torch.device('cuda')
     dataset_config, model_config, trainer_config = get_config(device)[0]

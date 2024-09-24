@@ -15,7 +15,7 @@ import numpy as np
 def objective(trial):
     s_lr = trial.suggest_categorical('s_lr', [3.e-3, 1.e-2, 3.e-2])
     s_l2 = trial.suggest_categorical('s_l2', [1.e-4, 1.e-3, 1.e-2])
-    lr = trial.suggest_categorical('lr', [0.3, 1., 3.])
+    lr = trial.suggest_categorical('lr', [1., 3., 10.])
     set_seed(2023)
     device = torch.device('cuda')
     dataset_config, model_config, trainer_config = get_config(device)[0]
@@ -24,9 +24,9 @@ def objective(trial):
                                 'n_epochs': 0, 'batch_size': 2 ** 14, 'dataloader_num_workers': 6,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
     attacker_config = {'name': 'FLOJOAttacker', 'n_fakes': 131, 'topk': 50,
-                       'n_inters': 41, 'expected_hr': 0.05, 'step': 131, 'n_adv_epochs': 20, 'n_retraining_epochs': 10,
-                       'look_ahead_step': 5, 'look_ahead_lr': 0.01,
-                       'lr': lr, 'reg': 0.05, 'momentum': 0.95,
+                       'n_inters': 41, 'expected_hr': 0.05, 'step': 131, 'n_adv_epochs': 20, 'n_retraining_epochs': 5,
+                       'look_ahead_step': 3, 'look_ahead_lr': 0.01,
+                       'lr': lr, 'reg': 0.1, 'momentum': 0.95,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
 

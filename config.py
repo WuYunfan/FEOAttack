@@ -60,39 +60,39 @@ def get_gowalla_attacker_config():
     gowalla_attacker_config.append(attacker_config)
 
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
-    surrogate_trainer_config = {'name': 'UserBatchTrainer', 'optimizer': 'Adam', 'lr': None, 'l2_reg': None,
+    surrogate_trainer_config = {'name': 'UserBatchTrainer', 'optimizer': 'Adam', 'lr': 0.1, 'l2_reg': 0.1,
                                 'n_epochs': 50, 'batch_size': 2048, 'loss_function': 'mse_loss',
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
-    attacker_config = {'name': 'PGAAttacker', 'lr': None, 'momentum': 0.95,
+    attacker_config = {'name': 'PGAAttacker', 'lr': 1., 'momentum': 0.95,
                        'n_fakes': 131, 'n_inters': 41, 'topk': 50, 'adv_epochs': 30,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
     gowalla_attacker_config.append(attacker_config)
 
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
-    surrogate_trainer_config = {'name': 'UserBatchTrainer', 'optimizer': 'Adam', 'lr': None, 'l2_reg': None,
+    surrogate_trainer_config = {'name': 'UserBatchTrainer', 'optimizer': 'Adam', 'lr': 0.001, 'l2_reg': 0.1,
                                 'n_epochs': 45, 'batch_size': 2048, 'loss_function': 'mse_loss', 'weight': 20.,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
-    attacker_config = {'name': 'RevAdvAttacker', 'lr': None, 'momentum': 0.95,
+    attacker_config = {'name': 'RevAdvAttacker', 'lr': 10., 'momentum': 0.95,
                        'n_fakes': 131, 'unroll_steps': 5, 'n_inters': 41, 'topk': 50, 'adv_epochs': 30,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
     gowalla_attacker_config.append(attacker_config)
 
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
-    surrogate_trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam', 'lr': None, 'l2_reg': None,
+    surrogate_trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam', 'lr': 0.1, 'l2_reg': 0.01,
                                 'n_epochs': 1, 'batch_size': 2 ** 12, 'dataloader_num_workers': 6,
                                 'test_batch_size': 2048, 'topks': [50], 'neg_ratio': 4, 'verbose': False}
     attacker_config = {'name': 'DPA2DLAttacker', 'n_fakes': 131, 'topk': 50,
-                       'n_inters': 41, 'reg_u': None, 'prob': 0.9, 'kappa': 1.,
-                       'step': 1, 'alpha': None, 'n_rounds': 1,
+                       'n_inters': 41, 'reg_u': 0.001, 'prob': 0.9, 'kappa': 1.,
+                       'step': 1, 'alpha': 0.01, 'n_rounds': 1,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
     gowalla_attacker_config.append(attacker_config)
 
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
     surrogate_trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': None, 'l2_reg': None,
-                                'n_epochs': 5, 'batch_size': 2 ** 12, 'dataloader_num_workers': 6,
+                                'n_epochs': 5, 'batch_size': 2 ** 14, 'dataloader_num_workers': 6,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
     attacker_config = {'name': 'RAPURAttacker', 'n_fakes': 131, 'topk': 50,
                        'n_inters': 41,  'step': 5, 'top_rate': 0.1,
@@ -102,12 +102,12 @@ def get_gowalla_attacker_config():
 
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
     surrogate_trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': None, 'l2_reg': None,
-                                'n_epochs': 0, 'batch_size': 2 ** 12, 'dataloader_num_workers': 6,
+                                'n_epochs': 0, 'batch_size': 2 ** 14, 'dataloader_num_workers': 6,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
     attacker_config = {'name': 'FLOJOAttacker', 'n_fakes': 131, 'topk': 50,
                        'n_inters': 41, 'expected_hr': 0.05, 'step': 131, 'n_adv_epochs': 20, 'n_retraining_epochs': 10,
-                       'look_ahead_step': 5, 'look_ahead_lr': None,
-                       'lr': None, 'reg': None, 'momentum': 0.95,
+                       'look_ahead_step': 5, 'look_ahead_lr': 0.01,
+                       'lr': None, 'reg': 0.05, 'momentum': 0.95,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
     gowalla_attacker_config.append(attacker_config)
@@ -184,10 +184,10 @@ def get_yelp_attacker_config():
 
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
     surrogate_trainer_config = {'name': 'UserBatchTrainer', 'optimizer': 'Adam', 'lr': None, 'l2_reg': None,
-                                'n_epochs': 45, 'batch_size': 2048, 'loss_function': 'mse_loss', 'weight': 20.,
+                                'n_epochs': 49, 'batch_size': 2048, 'loss_function': 'mse_loss', 'weight': 20.,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
     attacker_config = {'name': 'RevAdvAttacker', 'lr': None, 'momentum': 0.95,
-                       'n_fakes': 355, 'unroll_steps': 3, 'n_inters': 36, 'topk': 50, 'adv_epochs': 30,
+                       'n_fakes': 355, 'unroll_steps': 1, 'n_inters': 36, 'topk': 50, 'adv_epochs': 30,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
     yelp_attacker_config.append(attacker_config)
@@ -205,7 +205,7 @@ def get_yelp_attacker_config():
 
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
     surrogate_trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': None, 'l2_reg': None,
-                                'n_epochs': 5, 'batch_size': 2 ** 12, 'dataloader_num_workers': 6,
+                                'n_epochs': 5, 'batch_size': 2 ** 14, 'dataloader_num_workers': 6,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
     attacker_config = {'name': 'RAPURAttacker', 'n_fakes': 355, 'topk': 50,
                        'n_inters': 36,  'step': 5, 'top_rate': 0.1,
@@ -215,7 +215,7 @@ def get_yelp_attacker_config():
 
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
     surrogate_trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': None, 'l2_reg': None,
-                                'n_epochs': 0, 'batch_size': 2 ** 12, 'dataloader_num_workers': 6,
+                                'n_epochs': 0, 'batch_size': 2 ** 14, 'dataloader_num_workers': 6,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
     attacker_config = {'name': 'FLOJOAttacker', 'n_fakes': 355, 'topk': 50,
                        'n_inters': 36, 'expected_hr': 0.05, 'step': 355, 'n_adv_epochs': 20, 'n_retraining_epochs': 10,

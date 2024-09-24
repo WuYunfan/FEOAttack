@@ -15,6 +15,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from scipy.stats import pearsonr
+plt.rc('font', family='Times New Roman')
+plt.rcParams['pdf.fonttype'] = 42
 
 def attack_eval(trainer, recalls):
     recalls.append(trainer.eval('attack')[1]['Recall'][trainer.topks[0]])
@@ -27,12 +29,12 @@ def analyze(recall_records):
     epochs = np.arange(recall_diff.shape[1])
 
     pdf = PdfPages('time_analyze.pdf')
-    fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(14, 3))
-    ax1.text(20, 0.004, 'Hit ratio increases in early epochs', fontsize=13, color='#9a0700', fontweight='bold')
-    ax1.plot(epochs[18:], diff_mean[18:], '-', marker='o', markersize=3, color='#8daadb', linewidth=2)
-    ax1.fill_between(epochs[18:], diff_mean[18:] - diff_std[18:], diff_mean[18:] + diff_std[18:], alpha=0.2, color='#8daadb')
-    ax1.plot(epochs[:19], diff_mean[:19], '-', marker='o', markersize=3, color='#9a0700', linewidth=2)
-    ax1.fill_between(epochs[:19], diff_mean[:19] - diff_std[:19], diff_mean[:19] + diff_std[:19], alpha=0.2, color='#9a0700')
+    fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, constrained_layout=True, figsize=(14, 3))
+    ax1.text(20, 0.004, 'Hit ratio increases in early epochs', fontsize=18, color='#9a0700', fontweight='bold')
+    ax1.plot(epochs[17:], diff_mean[17:], '-', marker='o', markersize=3, color='#8daadb', linewidth=2)
+    ax1.fill_between(epochs[17:], diff_mean[17:] - diff_std[17:], diff_mean[17:] + diff_std[17:], alpha=0.2, color='#8daadb')
+    ax1.plot(epochs[:18], diff_mean[:18], '-', marker='o', markersize=3, color='#9a0700', linewidth=2)
+    ax1.fill_between(epochs[:18], diff_mean[:18] - diff_std[:18], diff_mean[:18] + diff_std[:18], alpha=0.2, color='#9a0700')
     ax1.grid(True, which='major', linestyle='--', linewidth=0.6)
     ax1.minorticks_on()
     ax1.tick_params(which='both', direction='in', labelsize=14)
@@ -43,6 +45,7 @@ def analyze(recall_records):
     ax1.set_ylim(-0.006, 0.008)
     ax1.set_yticks(np.arange(-0.006, 0.01, 0.002))
     ax1.set_xticks(np.arange(0, diff_mean.shape[0] + 2, 10))
+    ax1.axhline(0, color='black', linewidth=0.8)
 
     correlations = []
     conf_intervals = []
@@ -53,8 +56,8 @@ def analyze(recall_records):
         conf_intervals.append(conf_interval)
     correlations = np.array(correlations)
     conf_intervals = np.array(conf_intervals)
-    ax2.text(20, 0.55, 'HR differences in early epochs\n correlate more with final results',
-             fontsize=13, color='#9a0700', fontweight='bold')
+    ax2.text(20, 0.55, 'Hit ratio differences in early epochs\n correlate more with final results',
+             fontsize=18, color='#9a0700', fontweight='bold')
     ax2.plot(epochs[18:], correlations[18:], '-', marker='o', markersize=3, color='#8daadb', linewidth=2)
     ax2.fill_between(epochs[18:], conf_intervals[18:, 0], conf_intervals[18:, 1], alpha=0.2, color='#8daadb')
     ax2.plot(epochs[:19], correlations[:19], '-', marker='o', markersize=3, color='#9a0700', linewidth=2)
@@ -69,7 +72,9 @@ def analyze(recall_records):
     ax2.set_ylim(-0.6, 1.)
     ax2.set_yticks(np.arange(-0.6, 1.2, 0.2))
     ax2.set_xticks(np.arange(0, correlations.shape[0] + 2, 10))
+    ax2.axhline(0, color='black', linewidth=0.8)
 
+    plt.tight_layout()
     pdf.savefig()
     plt.close(fig)
     pdf.close()

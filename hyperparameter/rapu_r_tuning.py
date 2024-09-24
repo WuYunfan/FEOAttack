@@ -13,14 +13,14 @@ import numpy as np
 
 
 def objective(trial):
-    s_l2 = trial.suggest_categorical('s_l2', [1.e-4, 1.e-3, 1.e-2])
+    s_l2 = trial.suggest_categorical('s_l2', [1.e-5, 1.e-4, 1.e-3])
     s_lr = trial.suggest_categorical('s_lr', [1.e-3, 1.e-2, 1.e-1])
     set_seed(2023)
     device = torch.device('cuda')
     dataset_config, model_config, trainer_config = get_config(device)[0]
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
     surrogate_trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': s_lr, 'l2_reg': s_l2,
-                                'n_epochs': 5, 'batch_size': 2 ** 12, 'dataloader_num_workers': 6,
+                                'n_epochs': 5, 'batch_size': 2 ** 14, 'dataloader_num_workers': 6,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
     attacker_config = {'name': 'RAPURAttacker', 'n_fakes': 131, 'topk': 50,
                        'n_inters': 41,  'step': 5, 'top_rate': 0.1,

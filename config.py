@@ -91,7 +91,7 @@ def get_gowalla_attacker_config():
     gowalla_attacker_config.append(attacker_config)
 
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
-    surrogate_trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': None, 'l2_reg': None,
+    surrogate_trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': 0.1, 'l2_reg': 0.0001,
                                 'n_epochs': 5, 'batch_size': 2 ** 14, 'dataloader_num_workers': 6,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
     attacker_config = {'name': 'RAPURAttacker', 'n_fakes': 131, 'topk': 50,
@@ -101,13 +101,13 @@ def get_gowalla_attacker_config():
     gowalla_attacker_config.append(attacker_config)
 
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
-    surrogate_trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': None, 'l2_reg': None,
+    surrogate_trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': 0.01, 'l2_reg': 0.001,
                                 'n_epochs': 0, 'batch_size': 2 ** 14, 'dataloader_num_workers': 6,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
     attacker_config = {'name': 'FLOJOAttacker', 'n_fakes': 131, 'topk': 50,
-                       'n_inters': 41, 'expected_hr': 0.05, 'step': 131, 'n_adv_epochs': 20, 'n_retraining_epochs': 10,
-                       'look_ahead_step': 5, 'look_ahead_lr': 0.01,
-                       'lr': None, 'reg': 0.05, 'momentum': 0.95,
+                       'n_inters': 41, 'expected_hr': 0.05, 'step': 131, 'n_adv_epochs': 40, 'n_retraining_epochs': 5,
+                       'look_ahead_step': 3, 'look_ahead_lr': 0.03,
+                       'lr': 3., 'reg': 0.05, 'momentum': 0.95,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
     gowalla_attacker_config.append(attacker_config)
@@ -183,16 +183,6 @@ def get_yelp_attacker_config():
     yelp_attacker_config.append(attacker_config)
 
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
-    surrogate_trainer_config = {'name': 'UserBatchTrainer', 'optimizer': 'Adam', 'lr': None, 'l2_reg': None,
-                                'n_epochs': 49, 'batch_size': 2048, 'loss_function': 'mse_loss', 'weight': 20.,
-                                'test_batch_size': 2048, 'topks': [50], 'verbose': False}
-    attacker_config = {'name': 'RevAdvAttacker', 'lr': None, 'momentum': 0.95,
-                       'n_fakes': 355, 'unroll_steps': 1, 'n_inters': 36, 'topk': 50, 'adv_epochs': 30,
-                       'surrogate_model_config': surrogate_model_config,
-                       'surrogate_trainer_config': surrogate_trainer_config}
-    yelp_attacker_config.append(attacker_config)
-
-    surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
     surrogate_trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam', 'lr': None, 'l2_reg': None,
                                 'n_epochs': 1, 'batch_size': 2 ** 12, 'dataloader_num_workers': 6,
                                 'test_batch_size': 2048, 'topks': [50], 'neg_ratio': 4, 'verbose': False}
@@ -218,10 +208,47 @@ def get_yelp_attacker_config():
                                 'n_epochs': 0, 'batch_size': 2 ** 14, 'dataloader_num_workers': 6,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
     attacker_config = {'name': 'FLOJOAttacker', 'n_fakes': 355, 'topk': 50,
-                       'n_inters': 36, 'expected_hr': 0.05, 'step': 355, 'n_adv_epochs': 20, 'n_retraining_epochs': 10,
-                       'look_ahead_step': 5, 'look_ahead_lr': None,
+                       'n_inters': 36, 'expected_hr': 0.05, 'step': 355, 'n_adv_epochs': 40, 'n_retraining_epochs': 5,
+                       'look_ahead_step': 3, 'look_ahead_lr': None,
                        'lr': None, 'reg': None, 'momentum': 0.95,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
     yelp_attacker_config.append(attacker_config)
     return yelp_attacker_config
+
+
+def get_amazon_config(device):
+    dataset_config = {'name': 'ProcessedDataset', 'path': 'data/Amazon/time',
+                      'device': device}
+    amazon_config = []
+
+    model_config = {'name': 'MF', 'embedding_size': 64}
+    trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam',
+                      'lr': None, 'l2_reg': None,
+                      'n_epochs': 1000, 'batch_size': 2 ** 15, 'dataloader_num_workers': 10,
+                      'test_batch_size': 4096, 'topks': [50]}
+    amazon_config.append((dataset_config, model_config, trainer_config))
+
+    model_config = {'name': 'MF', 'embedding_size': 64}
+    trainer_config = {'name': 'APRTrainer', 'optimizer': 'Adam',
+                      'lr': None, 'l2_reg': None,
+                      'eps': None, 'adv_reg': None, 'ckpt_path': 'checkpoints/pretrain_mf.pth',
+                      'n_epochs': 1000, 'batch_size': 2 ** 15, 'dataloader_num_workers': 10,
+                      'test_batch_size': 4096, 'topks': [50]}
+    amazon_config.append((dataset_config, model_config, trainer_config))
+
+    model_config = {'name': 'LightGCN', 'embedding_size': 64, 'n_layers': 3}
+    trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam',
+                      'lr': None, 'l2_reg': None,
+                      'n_epochs': 1000, 'batch_size': 2 ** 15, 'dataloader_num_workers': 10,
+                      'test_batch_size': 4096, 'topks': [50]}
+    amazon_config.append((dataset_config, model_config, trainer_config))
+
+    model_config = {'name': 'MultiVAE', 'layer_sizes': [64, 32],
+                    'dropout': None}
+    trainer_config = {'name': 'MLTrainer', 'optimizer': 'Adam',
+                      'lr': None, 'l2_reg': None, 'kl_reg': 0.2,
+                      'n_epochs': 1000, 'batch_size': 4096,
+                      'test_batch_size': 4096, 'topks': [50]}
+    amazon_config.append((dataset_config, model_config, trainer_config))
+    return amazon_config

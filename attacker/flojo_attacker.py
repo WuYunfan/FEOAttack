@@ -101,6 +101,7 @@ class FLOJOAttacker(BasicAttacker):
                 loss_fake = loss_p + loss_n
 
                 loss_normal = 0.
+                '''
                 for batch_data in surrogate_trainer.dataloader:
                     inputs = batch_data.to(device=self.device, dtype=torch.int64)
                     pos_users, pos_items = inputs[:, 0, 0], inputs[:, 0, 1]
@@ -110,6 +111,7 @@ class FLOJOAttacker(BasicAttacker):
                     loss_p = F.softplus(-pos_scores)
                     loss_n = F.softplus(neg_scores)
                     loss_normal += loss_p.sum() + loss_n.sum() + l2_norm_sq.sum() * surrogate_trainer.l2_reg
+                '''
                 diffopt.step(loss_fake + loss_normal)
                 vprint('Unroll step {:d}, Train Loss: {:.6f}'.format(s, loss_fake + loss_normal), verbose)
 

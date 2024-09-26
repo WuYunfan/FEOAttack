@@ -9,7 +9,7 @@ def process_dataset(name):
 
 
 def main():
-    process_dataset('Tenrec')
+    process_dataset('Amazon')
 
 
 if __name__ == '__main__':

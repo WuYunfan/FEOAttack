@@ -30,7 +30,9 @@ class FLOJOAttacker(BasicAttacker):
         self.reg = attacker_config['reg']
         self.momentum = attacker_config['momentum']
         self.look_ahead_step = attacker_config['look_ahead_step']
+        self.adv_reg = attacker_config['adv_reg']
         self.look_ahead_lr = attacker_config['look_ahead_lr']
+        self.negative_sample_ratio = attacker_config.get('negative_sample_ratio', 4)
 
         self.candidate_mat = self.construct_candidates()
         self.target_item_tensor = torch.tensor(self.target_items, dtype=torch.int64, device=self.device)
@@ -90,8 +92,7 @@ class FLOJOAttacker(BasicAttacker):
                 profiles = profiles - torch.maximum(profiles.detach() - 1, torch.zeros_like(profiles))
                 n_profiles = 1. - profiles
                 profiles = F.normalize(profiles, p=1, dim=1) * weight_per_fake
-                n_profiles = F.normalize(n_profiles, p=1,
-                                         dim=1) * weight_per_fake * surrogate_trainer.negative_sample_ratio
+                n_profiles = F.normalize(n_profiles, p=1, dim=1) * weight_per_fake * self.negative_sample_ratio
 
                 scores, l2_norm_sq = fmodel.forward(temp_fake_user_tensor)
                 loss_p = F.softplus(-scores) + l2_norm_sq * surrogate_trainer.l2_reg
@@ -117,8 +118,10 @@ class FLOJOAttacker(BasicAttacker):
 
             fmodel.eval()
             target_scores, top_scores = self.get_target_item_and_top_scores(fmodel)
-            adv_loss = goal_oriented_loss(target_scores, top_scores, self.expected_hr).sum()
-            adv_grads = torch.autograd.grad(adv_loss, fake_tensor)[0]
+            adv_loss = goal_oriented_loss(target_scores, top_scores, self.expected_hr)
+            loss_fake /= n_samples * (self.negative_sample_ratio + 1)
+            reg_loss = self.adv_reg * loss_fake
+            adv_grads = torch.autograd.grad(adv_loss + reg_loss, fake_tensor)[0]
 
         adv_opt.zero_grad()
         fake_tensor.grad = adv_grads
@@ -127,7 +130,7 @@ class FLOJOAttacker(BasicAttacker):
             _, items = fake_tensor.topk(self.n_inters, dim=1)
             fake_tensor.data -= self.reg
             fake_tensor.data += torch.zeros_like(fake_tensor).scatter(1, items, 2 * self.reg)
-        vprint('Adversarial Loss: {:.6f}'.format(adv_loss.item()), verbose)
+        vprint('Adversarial Loss: {:.6f}, Reg Loss {:.6f}'.format(adv_loss.item(), reg_loss.item()), verbose)
         return adv_loss.item()
 
     def init_fake_tensor(self, n_temp_fakes):

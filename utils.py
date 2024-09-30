@@ -154,19 +154,19 @@ def goal_oriented_loss(target_scores, top_scores, expected_hr):
     n_target_hits = int(expected_hr * loss.shape[0] * loss.shape[1])
     bottom_loss = loss.reshape(-1).topk(n_target_hits).values
     bottom_loss = -bottom_loss
-    return bottom_loss
+    return bottom_loss.mean()
 
 
 def gumbel_topk(logits, topk, tau, hard=True):
     k_hot = torch.zeros_like(logits)
     continue_click = torch.ones([logits.shape[0]], dtype=torch.bool, device=logits.device)
     for _ in range(topk):
-        continue_click = continue_click & torch.any(logits > 0, dim=1)
         one_hot = F.gumbel_softmax(logits, tau=tau, hard=hard, dim=1)
         k_hot[continue_click, :] = k_hot[continue_click, :] + one_hot[continue_click, :]
         max_indexes = torch.argmax(one_hot, dim=1)
         mask = torch.zeros_like(logits).scatter(1, max_indexes[:, None], -np.inf)
         logits = logits + mask
+        continue_click = continue_click & torch.any(logits > 0, dim=1)
     return k_hot
 
 

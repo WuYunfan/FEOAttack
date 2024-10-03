@@ -41,7 +41,7 @@ def analyze(recall_records):
     ax1.xaxis.set_ticks_position('both')
     ax1.yaxis.set_ticks_position('both')
     ax1.set_xlabel('Training Epoch', fontsize=16)
-    ax1.set_ylabel('Hit Ratio Difference', fontsize=16)
+    ax1.set_ylabel('Hit Ratio Change', fontsize=16)
     ax1.set_ylim(-0.006, 0.008)
     ax1.set_yticks(np.arange(-0.006, 0.01, 0.002))
     ax1.set_xticks(np.arange(0, diff_mean.shape[0] + 2, 10))
@@ -56,7 +56,7 @@ def analyze(recall_records):
         conf_intervals.append(conf_interval)
     correlations = np.array(correlations)
     conf_intervals = np.array(conf_intervals)
-    ax2.text(20, 0.55, 'Hit ratio differences in early epochs\n correlate more with final results',
+    ax2.text(20, 0.55, 'Hit ratio changes in early epochs\n correlate more with final results',
              fontsize=18, color='#9a0700', fontweight='bold')
     ax2.plot(epochs[18:], correlations[18:], '-', marker='o', markersize=3, color='#8daadb', linewidth=2)
     ax2.fill_between(epochs[18:], conf_intervals[18:, 0], conf_intervals[18:, 1], alpha=0.2, color='#8daadb')

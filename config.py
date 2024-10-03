@@ -101,13 +101,13 @@ def get_gowalla_attacker_config():
     gowalla_attacker_config.append(attacker_config)
 
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
-    surrogate_trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': 0.01, 'l2_reg': 0.001,
+    surrogate_trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': None, 'l2_reg': 0.001,
                                 'n_epochs': 0, 'batch_size': 2 ** 14, 'dataloader_num_workers': 6,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
     attacker_config = {'name': 'FLOJOAttacker', 'n_fakes': 131, 'topk': 50,
-                       'n_inters': 41, 'expected_hr': 0.05, 'step': 131, 'n_adv_epochs': 40, 'n_retraining_epochs': 5,
-                       'look_ahead_step': 3, 'look_ahead_lr': 0.03,
-                       'lr': 3., 'reg': 0.05, 'momentum': 0.95,
+                       'n_inters': 41, 'expected_hr': 0.02, 'step': 131, 'n_adv_epochs': 20, 'n_retraining_epochs': 10,
+                       'look_ahead_step': 3, 'adv_reg': None, 'look_ahead_lr': None,
+                       'lr': None, 'reg': 0.05, 'momentum': 0.95,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
     gowalla_attacker_config.append(attacker_config)
@@ -204,13 +204,13 @@ def get_yelp_attacker_config():
     yelp_attacker_config.append(attacker_config)
 
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
-    surrogate_trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': 0.01, 'l2_reg': 0.001,
+    surrogate_trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': None, 'l2_reg': 0.001,
                                 'n_epochs': 0, 'batch_size': 2 ** 14, 'dataloader_num_workers': 6,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
     attacker_config = {'name': 'FLOJOAttacker', 'n_fakes': 355, 'topk': 50,
-                       'n_inters': 36, 'expected_hr': 0.05, 'step': 355, 'n_adv_epochs': 40, 'n_retraining_epochs': 5,
-                       'look_ahead_step': 3, 'look_ahead_lr': 0.01,
-                       'lr': 10., 'reg': 0.05, 'momentum': 0.95,
+                       'n_inters': 36, 'expected_hr': 0.02, 'step': 355, 'n_adv_epochs': 20, 'n_retraining_epochs': 10,
+                       'look_ahead_step': 3, 'adv_reg': None, 'look_ahead_lr': None,
+                       'lr': None, 'reg': 0.05, 'momentum': 0.95,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
     yelp_attacker_config.append(attacker_config)
@@ -245,9 +245,9 @@ def get_amazon_config(device):
     amazon_config.append((dataset_config, model_config, trainer_config))
 
     model_config = {'name': 'MultiVAE', 'layer_sizes': [64, 32],
-                    'dropout': None}
+                    'dropout': 	0.8}
     trainer_config = {'name': 'MLTrainer', 'optimizer': 'Adam',
-                      'lr': None, 'l2_reg': None, 'kl_reg': 0.2,
+                      'lr': 0.001, 'l2_reg': 0., 'kl_reg': 0.2,
                       'n_epochs': 1000, 'batch_size': 4096,
                       'test_batch_size': 4096, 'topks': [50]}
     amazon_config.append((dataset_config, model_config, trainer_config))

@@ -105,7 +105,7 @@ def get_gowalla_attacker_config():
                                 'n_epochs': 0, 'batch_size': 2 ** 14, 'dataloader_num_workers': 6,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
     attacker_config = {'name': 'FLOJOAttacker', 'n_fakes': 131, 'topk': 50,
-                       'n_inters': 41, 'expected_hr': 0.02, 'step': 131, 'n_adv_epochs': 20, 'n_retraining_epochs': 10,
+                       'n_inters': 41, 'expected_hr': 0.05, 'step': 131, 'n_adv_epochs': 20, 'n_retraining_epochs': 10,
                        'look_ahead_step': 3, 'adv_reg': None, 'look_ahead_lr': None,
                        'lr': None, 'reg': 0.05, 'momentum': 0.95,
                        'surrogate_model_config': surrogate_model_config,
@@ -208,7 +208,7 @@ def get_yelp_attacker_config():
                                 'n_epochs': 0, 'batch_size': 2 ** 14, 'dataloader_num_workers': 6,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
     attacker_config = {'name': 'FLOJOAttacker', 'n_fakes': 355, 'topk': 50,
-                       'n_inters': 36, 'expected_hr': 0.02, 'step': 355, 'n_adv_epochs': 20, 'n_retraining_epochs': 10,
+                       'n_inters': 36, 'expected_hr': 0.05, 'step': 355, 'n_adv_epochs': 20, 'n_retraining_epochs': 10,
                        'look_ahead_step': 3, 'adv_reg': None, 'look_ahead_lr': None,
                        'lr': None, 'reg': 0.05, 'momentum': 0.95,
                        'surrogate_model_config': surrogate_model_config,
@@ -299,13 +299,13 @@ def get_amazon_attacker_config():
     amazon_attacker_config.append(attacker_config)
 
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
-    surrogate_trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': None, 'l2_reg': None,
+    surrogate_trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': None, 'l2_reg': 0.001,
                                 'n_epochs': 0, 'batch_size': 2 ** 15, 'dataloader_num_workers': 10,
                                 'test_batch_size': 4096, 'topks': [50], 'verbose': False}
     attacker_config = {'name': 'FLOJOAttacker', 'n_fakes': 1348, 'topk': 50,
-                       'n_inters': 62, 'expected_hr': 0.05, 'step': 1348, 'n_adv_epochs': 40, 'n_retraining_epochs': 5,
-                       'look_ahead_step': 3, 'look_ahead_lr': None,
-                       'lr': None, 'reg': None, 'momentum': 0.95,
+                       'n_inters': 62, 'expected_hr': 0.05, 'step': 1348, 'n_adv_epochs': 20, 'n_retraining_epochs': 10,
+                       'look_ahead_step': 3, 'adv_reg': None, 'look_ahead_lr': None,
+                       'lr': None, 'reg': 0.05, 'momentum': 0.95,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
     amazon_attacker_config.append(attacker_config)

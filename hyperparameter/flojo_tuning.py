@@ -13,10 +13,10 @@ import numpy as np
 
 
 def objective(trial):
-    s_lr = trial.suggest_categorical('lr', [0.003, 0.01])
+    s_lr = trial.suggest_categorical('s_lr', [0.003, 0.01])
     lr = trial.suggest_categorical('lr', [3.e2, 1.e3, 3.e3])
-    adv_reg = trial.suggest_categorical('adv_reg', [0.001, 0.01, 0.1])
-    look_ahead_lr = trial.suggest_categorical('look_ahead_lr', [0.003, 0.01, 0.03])
+    adv_reg = trial.suggest_categorical('adv_reg', [0.01, 0.1, 1.])
+    look_ahead_lr = trial.suggest_categorical('look_ahead_lr', [0.01, 0.03, 0.1])
     set_seed(2023)
     device = torch.device('cuda')
     dataset_config, model_config, trainer_config = get_config(device)[0]
@@ -25,7 +25,7 @@ def objective(trial):
                                 'n_epochs': 0, 'batch_size': 2 ** 14, 'dataloader_num_workers': 6,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
     attacker_config = {'name': 'FLOJOAttacker', 'n_fakes': 131, 'topk': 50,
-                       'n_inters': 41, 'expected_hr': 0.02, 'step': 131, 'n_adv_epochs': 20, 'n_retraining_epochs': 10,
+                       'n_inters': 41, 'expected_hr': 0.05, 'step': 131, 'n_adv_epochs': 20, 'n_retraining_epochs': 10,
                        'look_ahead_step': 3, 'adv_reg': adv_reg, 'look_ahead_lr': look_ahead_lr,
                        'lr': lr, 'reg': 0.05, 'momentum': 0.95,
                        'surrogate_model_config': surrogate_model_config,

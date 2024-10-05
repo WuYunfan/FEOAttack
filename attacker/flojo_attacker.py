@@ -21,7 +21,6 @@ class FLOJOAttacker(BasicAttacker):
         self.surrogate_model_config = attacker_config['surrogate_model_config']
         self.surrogate_trainer_config = attacker_config['surrogate_trainer_config']
 
-        self.tau = attacker_config.get('tau', 1.)
         self.expected_hr = attacker_config['expected_hr']
         self.step = attacker_config['step']
         self.n_adv_epochs = attacker_config['n_adv_epochs']
@@ -66,7 +65,7 @@ class FLOJOAttacker(BasicAttacker):
 
     def fake_train(self, surrogate_trainer, fake_tensor):
         with torch.no_grad():
-            profiles = gumbel_topk(fake_tensor, self.n_inters, self.tau)
+            profiles = gumbel_topk(fake_tensor, self.n_inters)
         attack_dataset = AttackDataset(profiles, self.dataset.n_users,
                                        surrogate_trainer.negative_sample_ratio)
         attack_dataloader = DataLoader(attack_dataset, batch_size=surrogate_trainer.dataloader.batch_size,
@@ -84,10 +83,9 @@ class FLOJOAttacker(BasicAttacker):
         with higher.innerloop_ctx(surrogate_model, opt) as (fmodel, diffopt):
             fmodel.train()
             for s in range(self.look_ahead_step):
-                profiles = gumbel_topk(fake_tensor, self.n_inters, self.tau, hard=False)
+                profiles = gumbel_topk(fake_tensor, self.n_inters, hard=False)
                 n_samples = profiles.sum()
-                n_valid_fakes = torch.gt(profiles, 0).any(dim=1).float().sum()
-                weight_per_fake = n_samples / n_valid_fakes
+                weight_per_fake = n_samples / self.n_fakes
 
                 profiles = profiles - torch.maximum(profiles.detach() - 1, torch.zeros_like(profiles))
                 n_profiles = 1. - profiles

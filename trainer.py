@@ -59,7 +59,6 @@ class BasicTrainer:
                                   , metrics[metric][k], epoch)
 
     def train(self, verbose=True, writer=None, save=True, extra_eval=None):
-        self.dataset.negative_sample_ratio = self.negative_sample_ratio
         if not os.path.exists('checkpoints'): os.mkdir('checkpoints')
         patience = self.max_patience
         train_start_time = time.time()
@@ -196,6 +195,7 @@ class BPRTrainer(BasicTrainer):
         self.l2_reg = trainer_config['l2_reg']
 
     def train_one_epoch(self, epoch):
+        self.dataset.negative_sample_ratio = self.negative_sample_ratio
         losses = AverageMeter()
         for batch_data in self.dataloader:
             inputs = batch_data[:, 0, :].to(device=self.device, dtype=torch.int64)
@@ -230,6 +230,7 @@ class APRTrainer(BasicTrainer):
         self.model.load(trainer_config['ckpt_path'])
 
     def train_one_epoch(self, epoch):
+        self.dataset.negative_sample_ratio = self.negative_sample_ratio
         losses = AverageMeter()
         for batch_data in self.dataloader:
             inputs = batch_data[:, 0, :].to(device=self.device, dtype=torch.int64)
@@ -286,6 +287,7 @@ class BCETrainer(BasicTrainer):
             self.model.init_mlp_layers()
 
     def train_one_epoch(self, epoch):
+        self.dataset.negative_sample_ratio = self.negative_sample_ratio
         if self.model.name == 'NeuMF':
             self.change_arch(epoch)
         losses = AverageMeter()

@@ -76,13 +76,13 @@ class BasicModel(nn.Module):
         rep = self.get_rep()
         users_r = rep[users, :]
         if items is None:
-            all_items_r = rep[self.n_users:, :]
+            items_r = rep[self.n_users:, :]
         else:
-            all_items_r = rep[self.n_users + items, :]
-        scores = torch.mm(users_r, all_items_r.t())
+            items_r = rep[self.n_users + items, :]
+        scores = torch.mm(users_r, items_r.t())
 
-        l2_norm_sq_user = torch.norm(rep[users, :], p=2, dim=1) ** 2
-        l2_norm_sq_item = torch.norm(rep[-self.n_items:, :], p=2, dim=1) ** 2
+        l2_norm_sq_user = torch.norm(users_r, p=2, dim=1) ** 2
+        l2_norm_sq_item = torch.norm(items_r, p=2, dim=1) ** 2
         l2_norm_sq = l2_norm_sq_user.unsqueeze(1) + l2_norm_sq_item.unsqueeze(0)
         return scores, l2_norm_sq
 

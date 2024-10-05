@@ -46,7 +46,7 @@ class FLOJOAttacker(BasicAttacker):
         item_popularity = np.array(np.sum(data_mat, axis=0)).squeeze()
         popularity_rank = np.argsort(item_popularity)[::-1].copy()
         popular_items = popularity_rank[:n_top_items]
-        popular_candidate_tensor = torch.tensor(list(set(popular_items) + set(self.target_items)),
+        popular_candidate_tensor = torch.tensor(list(set(popular_items) | set(self.target_items)),
                                                 dtype=torch.int64, device=self.device)
         return popular_candidate_tensor
 
@@ -77,7 +77,7 @@ class FLOJOAttacker(BasicAttacker):
     def fake_train(self, surrogate_trainer, fake_tensor):
         with torch.no_grad():
             profiles = gumbel_topk(fake_tensor, self.n_inters)
-        attack_dataset = AttackDataset(profiles, self.dataset.n_users,
+        attack_dataset = AttackDataset(profiles, self.candidate_items, self.n_items, self.dataset.n_users,
                                        surrogate_trainer.negative_sample_ratio)
         attack_dataloader = DataLoader(attack_dataset, batch_size=surrogate_trainer.dataloader.batch_size,
                                        num_workers=surrogate_trainer.dataloader.num_workers,
@@ -144,7 +144,7 @@ class FLOJOAttacker(BasicAttacker):
 
     def init_fake_tensor(self, n_temp_fakes):
         sample_idxes = torch.randint(self.candidate_users.shape[0], size=[n_temp_fakes])
-        fake_tensor = torch.tensor(self.candidate_users[sample_idxes, self.candidate_items].toarray() * 5.,
+        fake_tensor = torch.tensor(self.candidate_users[sample_idxes][:, self.candidate_items.cpu()].toarray() * 5.,
                                    dtype=torch.float32, device=self.device)
         fake_tensor.requires_grad = True
         return fake_tensor

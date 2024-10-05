@@ -268,16 +268,6 @@ def get_amazon_attacker_config():
     amazon_attacker_config.append(attacker_config)
 
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
-    surrogate_trainer_config = {'name': 'UserBatchTrainer', 'optimizer': 'Adam', 'lr': None, 'l2_reg': None,
-                                'n_epochs': 50, 'batch_size': 4096, 'loss_function': 'mse_loss',
-                                'test_batch_size': 4096, 'topks': [50], 'verbose': False}
-    attacker_config = {'name': 'PGAAttacker', 'lr': None, 'momentum': 0.95,
-                       'n_fakes': 1348, 'n_inters': 62, 'topk': 50, 'adv_epochs': 30,
-                       'surrogate_model_config': surrogate_model_config,
-                       'surrogate_trainer_config': surrogate_trainer_config}
-    amazon_attacker_config.append(attacker_config)
-
-    surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
     surrogate_trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam', 'lr': None, 'l2_reg': None,
                                 'n_epochs': 1, 'batch_size': 2 ** 13, 'dataloader_num_workers': 10,
                                 'test_batch_size': 4096, 'topks': [50], 'neg_ratio': 4, 'verbose': False}

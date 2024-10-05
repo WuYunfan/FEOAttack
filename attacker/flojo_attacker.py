@@ -155,6 +155,7 @@ class FLOJOAttacker(BasicAttacker):
             n_inters = torch.gt(fake_tensor, 0.).int().sum(dim=1)
         for u_idx in range(temp_fake_user_tensor.shape[0]):
             filler_items = items[u_idx, :min(n_inters[u_idx], self.n_inters)]
+            filler_items = self.candidate_items[filler_items]
 
             f_u = temp_fake_user_tensor[u_idx]
             filler_items = filler_items.cpu().numpy().tolist()

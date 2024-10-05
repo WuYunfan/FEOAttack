@@ -12,6 +12,7 @@ import os
 import scipy.sparse as sp
 from utils import get_target_hr, vprint
 
+
 class RAPURAttacker(BasicAttacker):
     def __init__(self, attacker_config):
         super(RAPURAttacker, self).__init__(attacker_config)

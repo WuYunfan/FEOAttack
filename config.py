@@ -107,7 +107,7 @@ def get_gowalla_attacker_config():
     attacker_config = {'name': 'FLOJOAttacker', 'n_fakes': 131, 'topk': 50,
                        'n_inters': 41, 'expected_hr': 0.05, 'step': 131, 'n_adv_epochs': 20, 'n_retraining_epochs': 10,
                        'look_ahead_step': 3, 'adv_reg': None, 'look_ahead_lr': None,
-                       'lr': None, 'reg': 0.05, 'momentum': 0.95,
+                       'lr': None, 'reg': 0.05, 'momentum': 0.95, 'top_rate': 0.1,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
     gowalla_attacker_config.append(attacker_config)
@@ -210,7 +210,7 @@ def get_yelp_attacker_config():
     attacker_config = {'name': 'FLOJOAttacker', 'n_fakes': 355, 'topk': 50,
                        'n_inters': 36, 'expected_hr': 0.05, 'step': 355, 'n_adv_epochs': 20, 'n_retraining_epochs': 10,
                        'look_ahead_step': 3, 'adv_reg': None, 'look_ahead_lr': None,
-                       'lr': None, 'reg': 0.05, 'momentum': 0.95,
+                       'lr': None, 'reg': 0.05, 'momentum': 0.95, 'top_rate': 0.1,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
     yelp_attacker_config.append(attacker_config)
@@ -305,7 +305,7 @@ def get_amazon_attacker_config():
     attacker_config = {'name': 'FLOJOAttacker', 'n_fakes': 1348, 'topk': 50,
                        'n_inters': 62, 'expected_hr': 0.05, 'step': 1348, 'n_adv_epochs': 20, 'n_retraining_epochs': 10,
                        'look_ahead_step': 3, 'adv_reg': None, 'look_ahead_lr': None,
-                       'lr': None, 'reg': 0.05, 'momentum': 0.95,
+                       'lr': None, 'reg': 0.05, 'momentum': 0.95, 'top_rate': 0.01,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
     amazon_attacker_config.append(attacker_config)

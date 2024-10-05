@@ -31,15 +31,26 @@ class FLOJOAttacker(BasicAttacker):
         self.look_ahead_step = attacker_config['look_ahead_step']
         self.adv_reg = attacker_config['adv_reg']
         self.look_ahead_lr = attacker_config['look_ahead_lr']
-        self.negative_sample_ratio = attacker_config.get('negative_sample_ratio', 4)
 
-        self.candidate_mat = self.construct_candidates()
+        self.candidate_users = self.construct_candidate_users()
+        self.candidate_items = self.construct_candidate_items(attacker_config['top_rate'])
         self.target_item_tensor = torch.tensor(self.target_items, dtype=torch.int64, device=self.device)
         target_users = TensorDataset(torch.arange(self.n_users, dtype=torch.int64, device=self.device))
         self.target_user_loader = DataLoader(target_users, batch_size=self.surrogate_trainer_config['test_batch_size'],
                                              shuffle=False)
 
-    def construct_candidates(self):
+    def construct_candidate_items(self, top_rate):
+        n_top_items = int(self.n_items * top_rate)
+        data_mat = sp.coo_matrix((np.ones((len(self.dataset.train_array),)), np.array(self.dataset.train_array).T),
+                                 shape=(self.n_users, self.n_items), dtype=np.float32).tocsr()
+        item_popularity = np.array(np.sum(data_mat, axis=0)).squeeze()
+        popularity_rank = np.argsort(item_popularity)[::-1].copy()
+        popular_items = popularity_rank[:n_top_items]
+        popular_candidate_tensor = torch.tensor(list(set(popular_items) + set(self.target_items)),
+                                                dtype=torch.int64, device=self.device)
+        return popular_candidate_tensor
+
+    def construct_candidate_users(self):
         data_mat = sp.coo_matrix((np.ones((len(self.dataset.train_array),)), np.array(self.dataset.train_array).T),
                                  shape=(self.dataset.n_users, self.dataset.n_items), dtype=np.float32).tocsc()
         mask = np.zeros(data_mat.shape[0], dtype=bool)
@@ -90,9 +101,9 @@ class FLOJOAttacker(BasicAttacker):
                 profiles = profiles - torch.maximum(profiles.detach() - 1, torch.zeros_like(profiles))
                 n_profiles = 1. - profiles
                 profiles = F.normalize(profiles, p=1, dim=1) * weight_per_fake
-                n_profiles = F.normalize(n_profiles, p=1, dim=1) * weight_per_fake * self.negative_sample_ratio
+                n_profiles = F.normalize(n_profiles, p=1, dim=1) * weight_per_fake
 
-                scores, l2_norm_sq = fmodel.forward(temp_fake_user_tensor)
+                scores, l2_norm_sq = fmodel.forward(temp_fake_user_tensor, self.candidate_items)
                 loss_p = F.softplus(-scores) + l2_norm_sq * surrogate_trainer.l2_reg
                 loss_n = F.softplus(scores) + l2_norm_sq * surrogate_trainer.l2_reg
                 loss_p = (loss_p * profiles).sum()
@@ -117,7 +128,7 @@ class FLOJOAttacker(BasicAttacker):
             fmodel.eval()
             target_scores, top_scores = self.get_target_item_and_top_scores(fmodel)
             adv_loss = goal_oriented_loss(target_scores, top_scores, self.expected_hr)
-            loss_fake /= n_samples * (self.negative_sample_ratio + 1)
+            loss_fake /= n_samples * 2
             reg_loss = self.adv_reg * loss_fake
             adv_grads = torch.autograd.grad(adv_loss + reg_loss, fake_tensor)[0]
 
@@ -132,8 +143,9 @@ class FLOJOAttacker(BasicAttacker):
         return adv_loss.item()
 
     def init_fake_tensor(self, n_temp_fakes):
-        sample_idxes = torch.randint(self.candidate_mat.shape[0], size=[n_temp_fakes])
-        fake_tensor = torch.tensor(self.candidate_mat[sample_idxes].toarray() * 5., dtype=torch.float32, device=self.device)
+        sample_idxes = torch.randint(self.candidate_users.shape[0], size=[n_temp_fakes])
+        fake_tensor = torch.tensor(self.candidate_users[sample_idxes, self.candidate_items].toarray() * 5.,
+                                   dtype=torch.float32, device=self.device)
         fake_tensor.requires_grad = True
         return fake_tensor
 

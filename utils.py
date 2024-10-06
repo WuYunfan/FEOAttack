@@ -178,7 +178,7 @@ class AttackDataset(Dataset):
         self.length = 0
         profiles = profiles.detach().cpu().numpy()
         for f_u in range(self.n_fakes):
-            candidate_indices = np.nonzero(profiles[f_u, :])[0]
+            candidate_indices = np.where(profiles[f_u, :] > 0.5)[0]
             self.train_data.append(set(candidate_items[candidate_indices].detach().cpu().numpy().tolist()))
             self.length += candidate_indices.shape[0]
         self.n_items = n_items

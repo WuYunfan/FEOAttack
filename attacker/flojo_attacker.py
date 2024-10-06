@@ -6,7 +6,7 @@ from attacker.basic_attacker import BasicAttacker
 import numpy as np
 from model import get_model
 from trainer import get_trainer
-from utils import AverageMeter, vprint, get_target_hr, goal_oriented_loss, AttackDataset, gumbel_topk
+from utils import AverageMeter, vprint, get_target_hr, goal_oriented_loss, AttackDataset, gumbel_topk, PartialDataLoader
 import torch.nn.functional as F
 import time
 import os
@@ -31,23 +31,25 @@ class FLOJOAttacker(BasicAttacker):
         self.look_ahead_step = attacker_config['look_ahead_step']
         self.adv_reg = attacker_config['adv_reg']
         self.look_ahead_lr = attacker_config['look_ahead_lr']
+        self.top_rate = attacker_config['top_rate']
 
-        self.candidate_users = self.construct_candidate_users()
-        self.candidate_items = self.construct_candidate_items(attacker_config['top_rate'])
         self.target_item_tensor = torch.tensor(self.target_items, dtype=torch.int64, device=self.device)
         target_users = TensorDataset(torch.arange(self.n_users, dtype=torch.int64, device=self.device))
         self.target_user_loader = DataLoader(target_users, batch_size=self.surrogate_trainer_config['test_batch_size'],
                                              shuffle=False)
+        self.candidate_users = self.construct_candidate_users()
+        self.candidate_items = self.construct_candidate_items()
 
-    def construct_candidate_items(self, top_rate):
-        n_top_items = int(self.n_items * top_rate)
+    def construct_candidate_items(self):
+        n_top_items = int(self.n_items * self.top_rate)
         data_mat = sp.coo_matrix((np.ones((len(self.dataset.train_array),)), np.array(self.dataset.train_array).T),
                                  shape=(self.n_users, self.n_items), dtype=np.float32).tocsr()
         item_popularity = np.array(np.sum(data_mat, axis=0)).squeeze()
         popularity_rank = np.argsort(item_popularity)[::-1].copy()
         popular_items = popularity_rank[:n_top_items]
-        popular_candidate_tensor = torch.tensor(list(set(popular_items) | set(self.target_items)),
+        popular_candidate_tensor = torch.tensor(list(set(popular_items) - set(self.target_items)),
                                                 dtype=torch.int64, device=self.device)
+        popular_candidate_tensor = torch.cat([popular_candidate_tensor, self.target_item_tensor], dim=0)
         return popular_candidate_tensor
 
     def construct_candidate_users(self):
@@ -111,8 +113,7 @@ class FLOJOAttacker(BasicAttacker):
                 loss_fake = loss_p + loss_n
 
                 loss_normal = 0.
-                '''
-                for batch_data in surrogate_trainer.dataloader:
+                for batch_data in PartialDataLoader(surrogate_trainer.dataloader, self.top_rate):
                     inputs = batch_data.to(device=self.device, dtype=torch.int64)
                     pos_users, pos_items = inputs[:, 0, 0], inputs[:, 0, 1]
                     inputs = inputs.reshape(-1, 3)
@@ -121,7 +122,6 @@ class FLOJOAttacker(BasicAttacker):
                     loss_p = F.softplus(-pos_scores)
                     loss_n = F.softplus(neg_scores)
                     loss_normal += loss_p.sum() + loss_n.sum() + l2_norm_sq.sum() * surrogate_trainer.l2_reg
-                '''
                 diffopt.step(loss_fake + loss_normal)
                 vprint('Unroll step {:d}, Train Loss: {:.6f}'.format(s, loss_fake + loss_normal), verbose)
 
@@ -146,6 +146,7 @@ class FLOJOAttacker(BasicAttacker):
         sample_idxes = torch.randint(self.candidate_users.shape[0], size=[n_temp_fakes])
         fake_tensor = torch.tensor(self.candidate_users[sample_idxes][:, self.candidate_items.cpu()].toarray() * 5.,
                                    dtype=torch.float32, device=self.device)
+        fake_tensor[:, -self.target_items.shape[0]:] = 5.
         fake_tensor.requires_grad = True
         return fake_tensor
 

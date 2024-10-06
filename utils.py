@@ -151,7 +151,7 @@ def get_target_hr(surrogate_model, target_user_loader, target_item_tensor, topk)
 
 
 def goal_oriented_loss(target_scores, top_scores, expected_hr):
-    loss = -F.softplus(top_scores.detach() - target_scores)
+    loss = -F.softplus(F.relu(top_scores.detach() - target_scores))
     n_target_hits = int(expected_hr * loss.shape[0] * loss.shape[1])
     bottom_loss = loss.reshape(-1).topk(n_target_hits).values
     bottom_loss = -bottom_loss
@@ -169,6 +169,20 @@ def gumbel_topk(logits, topk, hard=True):
         logits = logits + mask
         continue_click = continue_click & torch.any(logits > 0, dim=1)
     return k_hot
+
+class PartialDataLoader:
+    def __init__(self, original_loader, ratio):
+        self.original_loader = original_loader
+        self.ratio = min(ratio, 1.)
+        self.length = max(1, int(len(self.original_loader) * self.ratio))
+
+    def __iter__(self):
+        batch_iterator = iter(self.original_loader)
+        for _ in range(self.length):
+            yield next(batch_iterator)
+
+    def __len__(self):
+        return self.length
 
 
 class AttackDataset(Dataset):

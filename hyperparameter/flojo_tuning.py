@@ -14,7 +14,7 @@ import numpy as np
 
 def objective(trial):
     s_lr = trial.suggest_categorical('s_lr', [0.003, 0.01])
-    lr = trial.suggest_categorical('lr', [1.e4, 1.e5, 1.e6])
+    lr = trial.suggest_categorical('lr', [1.e5, 1.e6, 1.e7])
     adv_reg = trial.suggest_categorical('adv_reg', [0.01, 0.1])
     look_ahead_lr = trial.suggest_categorical('look_ahead_lr', [0.001, 0.01, 0.1])
     set_seed(2023)

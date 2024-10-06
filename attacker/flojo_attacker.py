@@ -55,14 +55,7 @@ class FLOJOAttacker(BasicAttacker):
     def construct_candidate_users(self):
         data_mat = sp.coo_matrix((np.ones((len(self.dataset.train_array),)), np.array(self.dataset.train_array).T),
                                  shape=(self.dataset.n_users, self.dataset.n_items), dtype=np.float32).tocsc()
-        mask = np.zeros(data_mat.shape[0], dtype=bool)
-        for item in self.target_items:
-            start_idx = data_mat.indptr[item]
-            end_idx = data_mat.indptr[item + 1]
-            row_indices = data_mat.indices[start_idx:end_idx]
-            mask[row_indices] = True
-        candidate_mat = data_mat.tocsr()[mask]
-        return candidate_mat
+        return data_mat
 
     def get_target_item_and_top_scores(self, surrogate_model):
         target_scores = []
@@ -148,7 +141,6 @@ class FLOJOAttacker(BasicAttacker):
         sample_idxes = torch.randint(self.candidate_users.shape[0], size=[n_temp_fakes])
         fake_tensor = torch.tensor(self.candidate_users[sample_idxes][:, self.candidate_items.cpu()].toarray(),
                                    dtype=torch.float32, device=self.device)
-        fake_tensor[:, -self.target_items.shape[0]:] = 1.
         fake_tensor.requires_grad = True
         return fake_tensor
 

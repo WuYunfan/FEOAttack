@@ -100,7 +100,7 @@ class FLOJOAttacker(BasicAttacker):
                 n_samples = profiles.sum()
                 weight_per_fake = n_samples / self.n_fakes
 
-                profiles = profiles - torch.maximum(profiles.detach() - 1, torch.zeros_like(profiles))
+                profiles = torch.minimum(profiles, torch.ones_like(profiles))
                 n_profiles = 1. - profiles
                 profiles = F.normalize(profiles, p=1, dim=1) * weight_per_fake
                 n_profiles = F.normalize(n_profiles, p=1, dim=1) * weight_per_fake
@@ -113,6 +113,7 @@ class FLOJOAttacker(BasicAttacker):
                 loss_fake = loss_p + loss_n
 
                 loss_normal = 0.
+                '''
                 for batch_data in PartialDataLoader(surrogate_trainer.dataloader, self.top_rate):
                     inputs = batch_data.to(device=self.device, dtype=torch.int64)
                     pos_users, pos_items = inputs[:, 0, 0], inputs[:, 0, 1]
@@ -122,6 +123,7 @@ class FLOJOAttacker(BasicAttacker):
                     loss_p = F.softplus(-pos_scores)
                     loss_n = F.softplus(neg_scores)
                     loss_normal += loss_p.sum() + loss_n.sum() + l2_norm_sq.sum() * surrogate_trainer.l2_reg
+                '''
                 diffopt.step(loss_fake + loss_normal)
                 vprint('Unroll step {:d}, Train Loss: {:.6f}'.format(s, loss_fake + loss_normal), verbose)
 
@@ -136,17 +138,17 @@ class FLOJOAttacker(BasicAttacker):
         fake_tensor.grad = adv_grads
         adv_opt.step()
         with torch.no_grad():
-            _, items = fake_tensor.topk(self.n_inters, dim=1)
-            fake_tensor.data -= self.reg
-            fake_tensor.data += torch.zeros_like(fake_tensor).scatter(1, items, 2 * self.reg)
+            n_filler_items = torch.gt(fake_tensor, 0.).float().sum(dim=1)
+            need_reg = torch.gt(n_filler_items, self.n_inters).float()
+            fake_tensor.data -= self.reg * need_reg[:, None]
         vprint('Adversarial Loss: {:.6f}, Reg Loss {:.6f}'.format(adv_loss.item(), reg_loss.item()), verbose)
         return adv_loss.item()
 
     def init_fake_tensor(self, n_temp_fakes):
         sample_idxes = torch.randint(self.candidate_users.shape[0], size=[n_temp_fakes])
-        fake_tensor = torch.tensor(self.candidate_users[sample_idxes][:, self.candidate_items.cpu()].toarray() * 5.,
+        fake_tensor = torch.tensor(self.candidate_users[sample_idxes][:, self.candidate_items.cpu()].toarray(),
                                    dtype=torch.float32, device=self.device)
-        fake_tensor[:, -self.target_items.shape[0]:] = 5.
+        fake_tensor[:, -self.target_items.shape[0]:] = 1.
         fake_tensor.requires_grad = True
         return fake_tensor
 

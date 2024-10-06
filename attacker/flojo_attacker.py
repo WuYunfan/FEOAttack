@@ -98,7 +98,7 @@ class FLOJOAttacker(BasicAttacker):
                 n_samples = profiles.sum()
                 weight_per_fake = n_samples / self.n_fakes
 
-                profiles = torch.minimum(profiles, torch.ones_like(profiles))
+                profiles = profiles - torch.maximum(profiles.detach() - 1, torch.zeros_like(profiles))
                 n_profiles = 1. - profiles
                 profiles = F.normalize(profiles, p=1, dim=1) * weight_per_fake
                 n_profiles = F.normalize(n_profiles, p=1, dim=1) * weight_per_fake

@@ -141,6 +141,7 @@ class FLOJOAttacker(BasicAttacker):
         sample_idxes = torch.randint(self.candidate_users.shape[0], size=[n_temp_fakes])
         fake_tensor = torch.tensor(self.candidate_users[sample_idxes][:, self.candidate_items.cpu()].toarray(),
                                    dtype=torch.float32, device=self.device)
+        fake_tensor[:, -self.target_items.shape[0]:] = 1.
         fake_tensor.requires_grad = True
         return fake_tensor
 

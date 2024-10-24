@@ -13,21 +13,24 @@ import numpy as np
 
 
 def objective(trial):
-    s_lr = trial.suggest_categorical('s_lr', [0.003, 0.01])
-    lr = trial.suggest_categorical('lr', [1.e5, 1.e6, 1.e7])
-    adv_reg = trial.suggest_categorical('adv_reg', [0.01, 0.1, 1.])
-    look_ahead_lr = trial.suggest_categorical('look_ahead_lr', [0.001, 0.01])
+    lr = trial.suggest_categorical('lr', [10., 100.])
+    consistency_reg = trial.suggest_categorical('consistency_reg', [1., 10.])
+    entropy_reg = trial.suggest_categorical('entropy_reg', [0.1, 0.01])
+    l2_reg = trial.suggest_categorical('l2_reg', [0.001])
+    look_ahead_lr = trial.suggest_categorical('look_ahead_lr', [0.01, 0.1])
     set_seed(2023)
     device = torch.device('cuda')
     dataset_config, model_config, trainer_config = get_config(device)[0]
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
-    surrogate_trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': s_lr, 'l2_reg': 0.001,
+    surrogate_trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': 0.001, 'l2_reg': 0.001,
                                 'n_epochs': 0, 'batch_size': 2 ** 14, 'dataloader_num_workers': 6,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
     attacker_config = {'name': 'FLOJOAttacker', 'n_fakes': 131, 'topk': 50,
-                       'n_inters': 41, 'expected_hr': 0.05, 'step': 131, 'n_adv_epochs': 20, 'n_retraining_epochs': 10,
-                       'look_ahead_step': 3, 'adv_reg': adv_reg, 'look_ahead_lr': look_ahead_lr,
-                       'lr': lr, 'reg': 0.1, 'momentum': 0.95, 'top_rate': 1.,
+                       'n_inters': 41, 'expected_hr': 0.05, 'step': 131, 'n_adv_epochs': 1, 'n_retraining_epochs': 200,
+                       'lr': lr, 'momentum': 0.95,
+                       'consistency_reg': consistency_reg, 'entropy_reg': entropy_reg, 'l2_reg': l2_reg,
+                       'look_ahead_lr': look_ahead_lr, 'look_ahead_step': 5,
+                       'train_fake_its': 4, 'top_rate': 1.,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
 

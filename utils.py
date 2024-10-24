@@ -151,7 +151,7 @@ def get_target_hr(surrogate_model, target_user_loader, target_item_tensor, topk)
 
 
 def goal_oriented_loss(target_scores, top_scores, expected_hr):
-    loss = -F.softplus(F.relu(top_scores.detach() - target_scores))
+    loss = -F.softplus(top_scores.detach() - target_scores)
     n_target_hits = int(expected_hr * loss.shape[0] * loss.shape[1])
     bottom_loss = loss.reshape(-1).topk(n_target_hits).values
     bottom_loss = -bottom_loss
@@ -160,15 +160,15 @@ def goal_oriented_loss(target_scores, top_scores, expected_hr):
 
 def gumbel_topk(logits, topk, hard=True):
     k_hot = torch.zeros_like(logits)
-    continue_click = torch.ones([logits.shape[0]], dtype=torch.bool, device=logits.device)
-    for _ in range(topk):
+    for k in range(topk):
+        continue_click = torch.any(logits > 0, dim=1)
         one_hot = F.gumbel_softmax(logits, hard=hard, dim=1)
         k_hot[continue_click, :] = k_hot[continue_click, :] + one_hot[continue_click, :]
         max_indexes = torch.argmax(one_hot, dim=1)
         mask = torch.zeros_like(logits).scatter(1, max_indexes[:, None], -np.inf)
         logits = logits + mask
-        continue_click = continue_click & torch.any(logits > 0, dim=1)
     return k_hot
+
 
 class PartialDataLoader:
     def __init__(self, original_loader, ratio):
@@ -186,7 +186,7 @@ class PartialDataLoader:
 
 
 class AttackDataset(Dataset):
-    def __init__(self, profiles, candidate_items, n_items, n_existing_users, negative_sample_ratio):
+    def __init__(self, profiles, candidate_items, n_items, n_existing_users):
         self.n_fakes = profiles.shape[0]
         self.train_data = []
         self.length = 0
@@ -197,7 +197,6 @@ class AttackDataset(Dataset):
             self.length += candidate_indices.shape[0]
         self.n_items = n_items
         self.n_existing_users = n_existing_users
-        self.negative_sample_ratio = negative_sample_ratio
 
     def __len__(self):
         return self.length
@@ -205,8 +204,8 @@ class AttackDataset(Dataset):
     def __getitem__(self, index):
         fake_u = random.randint(0, self.n_fakes - 1)
         pos_item = np.random.choice(list(self.train_data[fake_u]))
-        data_with_negs = np.ones((self.negative_sample_ratio, 3), dtype=np.int64)
+        data_with_negs = np.ones((1, 3), dtype=np.int64)
         data_with_negs[:, 0] = fake_u + self.n_existing_users
         data_with_negs[:, 1] = pos_item
-        data_with_negs[:, 2] = get_negative_items(self, fake_u, self.negative_sample_ratio)
+        data_with_negs[:, 2] = get_negative_items(self, fake_u, 1)
         return data_with_negs

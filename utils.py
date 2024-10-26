@@ -158,18 +158,6 @@ def goal_oriented_loss(target_scores, top_scores, expected_hr):
     return bottom_loss.mean()
 
 
-def gumbel_topk(logits, topk, hard=True):
-    k_hot = torch.zeros_like(logits)
-    for k in range(topk):
-        continue_click = torch.any(logits > 0, dim=1)
-        one_hot = F.gumbel_softmax(logits, hard=hard, dim=1)
-        k_hot[continue_click, :] = k_hot[continue_click, :] + one_hot[continue_click, :]
-        max_indexes = torch.argmax(one_hot, dim=1)
-        mask = torch.zeros_like(logits).scatter(1, max_indexes[:, None], -np.inf)
-        logits = logits + mask
-    return k_hot
-
-
 class PartialDataLoader:
     def __init__(self, original_loader, ratio):
         self.original_loader = original_loader

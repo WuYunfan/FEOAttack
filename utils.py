@@ -171,29 +171,3 @@ class PartialDataLoader:
 
     def __len__(self):
         return self.length
-
-
-class AttackDataset(Dataset):
-    def __init__(self, profiles, candidate_items, n_items, n_existing_users):
-        self.n_fakes = profiles.shape[0]
-        self.train_data = []
-        self.length = 0
-        profiles = profiles.detach().cpu().numpy()
-        for f_u in range(self.n_fakes):
-            candidate_indices = np.where(profiles[f_u, :] > 0.5)[0]
-            self.train_data.append(set(candidate_items[candidate_indices].detach().cpu().numpy().tolist()))
-            self.length += candidate_indices.shape[0]
-        self.n_items = n_items
-        self.n_existing_users = n_existing_users
-
-    def __len__(self):
-        return self.length
-
-    def __getitem__(self, index):
-        fake_u = random.randint(0, self.n_fakes - 1)
-        pos_item = np.random.choice(list(self.train_data[fake_u]))
-        data_with_negs = np.ones((1, 3), dtype=np.int64)
-        data_with_negs[:, 0] = fake_u + self.n_existing_users
-        data_with_negs[:, 1] = pos_item
-        data_with_negs[:, 2] = get_negative_items(self, fake_u, 1)
-        return data_with_negs

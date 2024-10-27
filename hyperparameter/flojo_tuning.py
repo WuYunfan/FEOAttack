@@ -13,8 +13,8 @@ import numpy as np
 
 
 def objective(trial):
-    lr = trial.suggest_categorical('lr', [10.])
-    look_ahead_lr = trial.suggest_categorical('look_ahead_lr', [10.])
+    lr = trial.suggest_categorical('lr', [100.])
+    look_ahead_lr = trial.suggest_categorical('look_ahead_lr', [0.1])
     set_seed(2023)
     device = torch.device('cuda')
     dataset_config, model_config, trainer_config = get_config(device)[0]
@@ -24,7 +24,7 @@ def objective(trial):
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
     attacker_config = {'name': 'FLOJOAttacker', 'n_fakes': 131, 'topk': 50, 'n_inters': 41,
                        'expected_hr': 0.05, 'step_user': 131,
-                       'step_item': 1, 'n_retraining_epochs': 41, 'lr': lr,
+                       'item_interval': 5, 'n_retraining_epochs': 210, 'lr': lr, 'momentum': 0.95,
                        'look_ahead_lr': look_ahead_lr, 'look_ahead_step': 5, 'train_fake_its': 4,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}

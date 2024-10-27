@@ -67,7 +67,7 @@ class DPA2DLAttacker(BasicAttacker):
             f_u = temp_fake_user_tensor[u_idx]
             filler_items = filler_items.cpu().numpy().tolist()
             self.fake_user_inters[f_u - self.n_users] = filler_items + self.target_items.tolist()
-            self.dataset.train_data[f_u] |= set(filler_items)
+            self.dataset.train_data[f_u].update(filler_items)
             self.dataset.train_array += [[f_u, item] for item in filler_items]
 
     def generate_fake_users(self, verbose=True, writer=None):
@@ -83,7 +83,7 @@ class DPA2DLAttacker(BasicAttacker):
             n_temp_fakes = temp_fake_user_tensor.shape[0]
 
             self.dataset.train_data += [set(self.target_items) for _ in range(n_temp_fakes)]
-            self.dataset.val_data += [{} for _ in range(n_temp_fakes)]
+            self.dataset.val_data += [set() for _ in range(n_temp_fakes)]
             self.dataset.train_array += [[fake_u, item] for item in self.target_items for fake_u in
                                          temp_fake_user_tensor]
             self.dataset.n_users += n_temp_fakes

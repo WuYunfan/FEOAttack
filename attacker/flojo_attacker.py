@@ -30,7 +30,6 @@ class FLOJOAttacker(BasicAttacker):
         self.momentum = attacker_config['momentum']
         self.l2_reg = attacker_config['l2_reg']
         self.look_ahead_lr = attacker_config['look_ahead_lr']
-        self.look_ahead_first_rate = attacker_config['look_ahead_first_rate']
         self.look_ahead_step = attacker_config['look_ahead_step']
         self.train_fake_its = attacker_config['train_fake_its']
 
@@ -61,24 +60,18 @@ class FLOJOAttacker(BasicAttacker):
             filler_items = [list(items) for items in filler_items]
             filler_items = torch.tensor(filler_items, dtype=torch.int64, device=self.device)
             profiles = torch.scatter(profiles, 1, filler_items, 1.)
-            normed_p_profiles = F.normalize(profiles, dim=1, p=1)
-            normed_n_profiles = F.normalize(1 - profiles, dim=1, p=1)
 
-            for s in range(self.look_ahead_step * 2):
-                if s < self.look_ahead_step:
-                    scores, l2_norm_sq = fmodel.forward(temp_fake_user_tensor, d_item=True)
-                else:
-                    scores, l2_norm_sq = fmodel.forward(temp_fake_user_tensor, d_user=True)
+            for s in range(self.look_ahead_step):
+                scores, l2_norm_sq = fmodel.forward(temp_fake_user_tensor)
+                normed_p_profiles = F.normalize(profiles, dim=1, p=1)
+                normed_n_profiles = F.normalize(1 - profiles, dim=1, p=1)
                 score_p = (scores * normed_p_profiles).sum(dim=1).detach()
                 score_n = (scores * normed_n_profiles).sum(dim=1).detach()
                 loss_p = F.softplus(score_n[:, None] - scores) + surrogate_trainer.l2_reg * l2_norm_sq
                 loss_n = F.softplus(scores - score_p[:, None]) + surrogate_trainer.l2_reg * l2_norm_sq
                 loss_p = (loss_p * profiles).sum()
                 loss_n = (loss_n * normed_n_profiles * profiles.sum(dim=1, keepdim=True)).sum()
-                if s < self.look_ahead_step:
-                    diffopt.step((loss_p + loss_n) * self.look_ahead_first_rate)
-                else:
-                    diffopt.step(loss_p + loss_n)
+                diffopt.step(loss_p + loss_n)
                 loss_p = loss_p / profiles.sum()
                 loss_n = loss_n / profiles.sum()
                 vprint('Unroll step {:d}, Positive loss {:.6f}, Negative loss {:.6f}'.
@@ -87,12 +80,15 @@ class FLOJOAttacker(BasicAttacker):
             fmodel.eval()
             target_scores, top_scores = self.get_target_item_and_top_scores(fmodel)
             adv_loss = goal_oriented_loss(target_scores, top_scores, self.expected_hr)
-            l2_norm = torch.norm(fake_tensor[~torch.isinf(fake_tensor)], p=2)
             adv_grads = torch.autograd.grad(adv_loss, fake_tensor)[0]
 
         adv_opt.zero_grad()
-        fake_tensor.grad = adv_grads
+        fake_tensor.grad = F.normalize(adv_grads, p=2, dim=1)
         adv_opt.step()
+        with torch.no_grad():
+            gt = torch.gt(fake_tensor, 0.)
+            fake_tensor[gt].data = fake_tensor[gt] * (1. - self.l2_reg)
+            l2_norm = torch.norm(fake_tensor[gt], p=2)
         vprint('Iteration {:d}: Adversarial Loss: {:.6f}, L2 Norm: {:.6f}'.
                format(it, adv_loss.item(), l2_norm.item()), verbose)
 
@@ -110,27 +106,26 @@ class FLOJOAttacker(BasicAttacker):
         filler_items = fake_tensor.argmax(dim=1).cpu().numpy().tolist()
         for u_idx in range(temp_fake_user_tensor.shape[0]):
             f_u = temp_fake_user_tensor[u_idx]
-            self.fake_user_inters[f_u - self.n_users].append(filler_items[u_idx])
             self.dataset.train_data[f_u].add(filler_items[u_idx])
             self.dataset.train_array.append([f_u, filler_items[u_idx]])
+            self.fake_user_inters[f_u - self.n_users] = list(self.dataset.train_data[f_u])
 
     def retrain_surrogate(self, temp_fake_user_tensor, fake_nums_str, verbose, writer):
         surrogate_model = get_model(self.surrogate_model_config, self.dataset)
         surrogate_trainer = get_trainer(self.surrogate_trainer_config, surrogate_model)
         fake_tensor = self.init_fake_tensor(temp_fake_user_tensor)
-        adv_opt = SGD([fake_tensor], lr=self.lr, momentum=self.momentum, weight_decay=self.l2_reg)
+        adv_opt = SGD([fake_tensor], lr=self.lr, momentum=self.momentum)
         for retraining_epoch in range(self.n_retraining_epochs):
             start_time = time.time()
 
-            for it in range(self.train_fake_its):
-                self.train_fake(surrogate_model, surrogate_trainer, fake_tensor, adv_opt, temp_fake_user_tensor, it, verbose)
-            if retraining_epoch % self.item_interval == 0 and len(self.dataset.train_data[-1]) < self.n_inters:
-                self.add_filler_items(fake_tensor, temp_fake_user_tensor)
-                fake_tensor = self.init_fake_tensor(temp_fake_user_tensor)
-                adv_opt = SGD([fake_tensor], lr=self.lr, momentum=self.momentum, weight_decay=self.l2_reg)
-
             surrogate_model.train()
             t_loss = surrogate_trainer.train_one_epoch(None)
+            for it in range(self.train_fake_its):
+                self.train_fake(surrogate_model, surrogate_trainer, fake_tensor, adv_opt, temp_fake_user_tensor, it, verbose)
+            if (retraining_epoch + 1) % self.item_interval == 0 and len(self.dataset.train_data[-1]) < self.n_inters:
+                self.add_filler_items(fake_tensor, temp_fake_user_tensor)
+                fake_tensor = self.init_fake_tensor(temp_fake_user_tensor)
+                adv_opt = SGD([fake_tensor], lr=self.lr, momentum=self.momentum)
             target_hr = get_target_hr(surrogate_model, self.target_user_loader, self.target_item_tensor, self.topk)
 
             consumed_time = time.time() - start_time
@@ -168,3 +163,4 @@ class FLOJOAttacker(BasicAttacker):
         self.dataset.val_data = self.dataset.val_data[:-self.n_fakes]
         self.dataset.train_array = self.dataset.train_array[:-self.n_fakes * self.n_inters]
         self.dataset.n_users -= self.n_fakes
+

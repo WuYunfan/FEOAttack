@@ -60,11 +60,11 @@ class FLOJOAttacker(BasicAttacker):
             filler_items = [list(items) for items in filler_items]
             filler_items = torch.tensor(filler_items, dtype=torch.int64, device=self.device)
             profiles = torch.scatter(profiles, 1, filler_items, 1.)
+            normed_p_profiles = F.normalize(profiles, dim=1, p=1)
+            normed_n_profiles = F.normalize(1 - profiles, dim=1, p=1)
 
             for s in range(self.look_ahead_step):
                 scores, l2_norm_sq = fmodel.forward(temp_fake_user_tensor)
-                normed_p_profiles = F.normalize(profiles, dim=1, p=1)
-                normed_n_profiles = F.normalize(1 - profiles, dim=1, p=1)
                 score_p = (scores * normed_p_profiles).sum(dim=1).detach()
                 score_n = (scores * normed_n_profiles).sum(dim=1).detach()
                 loss_p = F.softplus(score_n[:, None] - scores) + surrogate_trainer.l2_reg * l2_norm_sq

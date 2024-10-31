@@ -72,11 +72,15 @@ class BasicModel(nn.Module):
         l2_norm_sq = torch.cat([pos_l2_norm_sq, neg_l2_norm_sq], dim=0)
         return pos_scores, neg_scores, l2_norm_sq
 
-    def forward(self, users):
+    def forward(self, users, d_user=False, d_item=False):
         rep = self.get_rep()
         users_r = rep[users, :]
         items_r = rep[self.n_users:, :]
         scores = torch.mm(users_r, items_r.t())
+        if d_user:
+            users_r = users_r.detach()
+        if d_item:
+            items_r = items_r.detach()
 
         l2_norm_sq_user = torch.norm(users_r, p=2, dim=1) ** 2
         l2_norm_sq_item = torch.norm(items_r, p=2, dim=1) ** 2

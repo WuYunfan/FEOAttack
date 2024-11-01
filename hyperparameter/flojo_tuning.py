@@ -26,8 +26,8 @@ def objective(trial):
     attacker_config = {'name': 'FLOJOAttacker', 'n_fakes': 131, 'topk': 50, 'n_inters': 41,
                        'expected_hr': 0.05, 'step_user': 131, 'item_interval': 5,
                        'n_retraining_epochs': 205, 'lr': lr, 'momentum': 0.95, 'l2_reg': l2_reg,
-                       'look_ahead_lr': look_ahead_lr, 'look_ahead_step': 4, 'look_ahead_rate': 10.,
-                       'train_fake_its': 5, 'prob': 0.99,
+                       'look_ahead_lr': look_ahead_lr, 'look_ahead_step': 4, 'look_ahead_rate': 30.,
+                       'train_fake_its': 5, 'prob': 0.95,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
 

@@ -29,6 +29,7 @@ class FLOJOAttacker(BasicAttacker):
         self.lr = attacker_config['lr']
         self.momentum = attacker_config['momentum']
         self.l2_reg = attacker_config['l2_reg']
+        self.diverse_reg = attacker_config['diverse_reg']
         self.look_ahead_lr = attacker_config['look_ahead_lr']
         self.look_ahead_step = attacker_config['look_ahead_step']
         self.look_ahead_rate = attacker_config['look_ahead_rate']
@@ -39,12 +40,6 @@ class FLOJOAttacker(BasicAttacker):
         target_users = TensorDataset(torch.arange(self.n_users, dtype=torch.int64, device=self.device))
         self.target_user_loader = DataLoader(target_users, batch_size=self.surrogate_trainer_config['test_batch_size'],
                                              shuffle=False)
-        self.candidate_users = self.construct_candidate_users()
-
-    def construct_candidate_users(self):
-        data_mat = sp.coo_matrix((np.ones((len(self.dataset.train_array),)), np.array(self.dataset.train_array).T),
-                                 shape=(self.dataset.n_users, self.dataset.n_items), dtype=np.float32).tocsc()
-        return data_mat
 
     def get_target_item_and_top_scores(self, surrogate_model):
         target_scores = []
@@ -92,9 +87,11 @@ class FLOJOAttacker(BasicAttacker):
                        format(s, loss_p.item(), loss_n.item()), verbose)
 
             fmodel.eval()
+            fake_user_rep = fmodel.get_rep()[temp_fake_user_tensor, :]
+            diff = torch.norm(fake_user_rep.unsqueeze(1) - fake_user_rep.unsqueeze(0), p=2)
             target_scores, top_scores = self.get_target_item_and_top_scores(fmodel)
             adv_loss = goal_oriented_loss(target_scores, top_scores, self.expected_hr)
-            adv_grads = torch.autograd.grad(adv_loss, fake_tensor)[0]
+            adv_grads = torch.autograd.grad(adv_loss - self.diverse_reg * diff, fake_tensor)[0]
 
         adv_opt.zero_grad()
         fake_tensor.grad = F.normalize(adv_grads, p=2, dim=1)
@@ -103,13 +100,11 @@ class FLOJOAttacker(BasicAttacker):
             gt = torch.gt(fake_tensor, 0.)
             fake_tensor[gt].data = fake_tensor[gt] * (1. - self.l2_reg)
             l2_norm = torch.norm(fake_tensor[gt], p=2)
-        vprint('Iteration {:d}: Adversarial Loss: {:.6f}, L2 Norm: {:.6f}'.
-               format(it, adv_loss.item(), l2_norm.item()), verbose)
+        vprint('Iteration {:d}: Adversarial Loss: {:.6f}, L2 Norm: {:.6f}, Difference: {:.6f}'.
+               format(it, adv_loss.item(), l2_norm.item(), diff.item()), verbose)
 
     def init_fake_tensor(self, temp_fake_user_tensor):
-        sample_indices = torch.randint(self.candidate_users.shape[0], size=[temp_fake_user_tensor.shape[0]])
-        fake_tensor = torch.tensor(self.candidate_users[sample_indices].toarray() * 10.,
-                                   dtype=torch.float32, device=self.device)
+        fake_tensor = torch.zeros([temp_fake_user_tensor.shape[0], self.n_items], dtype=torch.float32, device=self.device)
         for u_idx in range(temp_fake_user_tensor.shape[0]):
             f_u = temp_fake_user_tensor[u_idx]
             filler_items = list(self.dataset.train_data[f_u])

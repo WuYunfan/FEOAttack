@@ -66,7 +66,6 @@ class FLOJOAttacker(BasicAttacker):
             adv_loss = self.train_fake_batch(surrogate_model, surrogate_trainer, temp_fake_user_tensor, fmodel)
 
         vprint('Iteration {:d}: Adversarial Loss: {:.6f}'.format(it, adv_loss), verbose)
-        return scores
 
     def add_filler_items(self, surrogate_model, temp_fake_user_tensor, fre_bias):
         with torch.no_grad():
@@ -94,7 +93,7 @@ class FLOJOAttacker(BasicAttacker):
 
             target_hr = get_target_hr(surrogate_model, self.target_user_loader, self.target_item_tensor, self.topk)
             consumed_time = time.time() - start_time
-            vprint('Retraining Epoch {:d}/{:d}, Time: {:.3f}s, Train Loss: {:.6f}, Target Hit Ratio {:.6f}%'.
+            vprint('Training Epoch {:d}/{:d}, Time: {:.3f}s, Train Loss: {:.6f}, Target Hit Ratio {:.6f}%'.
                    format(training_epoch, self.n_training_epochs, consumed_time, t_loss, target_hr * 100.), verbose)
             writer_tag = '{:s}_{:s}'.format(self.name, fake_nums_str)
             if writer:

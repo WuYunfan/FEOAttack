@@ -55,16 +55,15 @@ class DPA2DLAttacker(BasicAttacker):
     def choose_filler_items(self, surrogate_model, temp_fake_user_tensor, prob):
         surrogate_model.eval()
         with torch.no_grad():
-            scores = surrogate_model.predict(temp_fake_user_tensor)
-        for u_idx in range(temp_fake_user_tensor.shape[0]):
-            item_score = torch.sigmoid(scores[u_idx, :]) * prob
+            scores = torch.sigmoid(surrogate_model.predict(temp_fake_user_tensor))
+        for u_idx, f_u in enumerate(temp_fake_user_tensor):
+            item_score = scores[u_idx, :] * prob
             item_score[self.target_item_tensor] = 0.
             filler_items = item_score.topk(self.n_inters - self.target_items.shape[0]).indices
-            prob[torch.cat([filler_items, self.target_item_tensor], dim=0)] *= self.prob
+            prob[filler_items] *= self.prob
             if (prob < 1.0).all():
                 prob[:] = 1.
 
-            f_u = temp_fake_user_tensor[u_idx]
             filler_items = filler_items.cpu().numpy().tolist()
             self.fake_user_inters[f_u - self.n_users] = filler_items + self.target_items.tolist()
             self.dataset.train_data[f_u].update(filler_items)

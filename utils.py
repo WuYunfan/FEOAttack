@@ -156,18 +156,3 @@ def goal_oriented_loss(target_scores, top_scores, expected_hr):
     bottom_loss = loss.reshape(-1).topk(n_target_hits).values
     bottom_loss = -bottom_loss
     return bottom_loss.mean()
-
-
-class PartialDataLoader:
-    def __init__(self, original_loader, ratio):
-        self.original_loader = original_loader
-        self.ratio = min(ratio, 1.)
-        self.length = max(1, int(len(self.original_loader) * self.ratio))
-
-    def __iter__(self):
-        batch_iterator = iter(self.original_loader)
-        for _ in range(self.length):
-            yield next(batch_iterator)
-
-    def __len__(self):
-        return self.length

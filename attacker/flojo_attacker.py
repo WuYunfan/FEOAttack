@@ -27,91 +27,53 @@ class FLOJOAttacker(BasicAttacker):
         self.n_training_epochs = attacker_config['n_training_epochs']
         self.adv_weight = attacker_config['adv_weight']
         self.diverse_weight = attacker_config['diverse_weight']
-        self.l2_weight = attacker_config['l2_weight']
         self.look_ahead_lr = attacker_config['look_ahead_lr']
-        self.fre_bias = attacker_config['fre_bias']
+        self.train_fake_ratio = attacker_config['train_fake_ratio']
+        self.prob = attacker_config['prob']
 
         self.target_item_tensor = torch.tensor(self.target_items, dtype=torch.int64, device=self.device)
         target_users = TensorDataset(torch.arange(self.n_users, dtype=torch.int64, device=self.device))
         self.target_user_loader = DataLoader(target_users, batch_size=self.surrogate_trainer_config['test_batch_size'],
                                              shuffle=True)
 
-    def train_fake_batch(self, surrogate_model, surrogate_trainer, temp_fake_user_tensor, fmodel):
-        losses = AverageMeter()
-        for users in self.target_user_loader:
-            users = users[0]
-            scores = fmodel.predict(users)
-            target_scores = scores[:, self.target_item_tensor]
-            top_scores = scores.topk(self.topk, dim=1).values[:, -1:]
-            adv_loss = goal_oriented_loss(target_scores, top_scores, self.expected_hr)
-            adv_grads = torch.autograd.grad(adv_loss, fmodel.parameters(time=0), retain_graph=True)[0]
-
-            surrogate_trainer.opt.zero_grad()
-            surrogate_model.embedding.weight.grad = torch.zeros_like(adv_grads)
-            surrogate_model.embedding.weight.grad[temp_fake_user_tensor] = self.adv_weight * adv_grads[temp_fake_user_tensor]
-            surrogate_trainer.opt.step()
-            losses.update(adv_loss.item(), int(users.shape[0] * self.target_items.shape[0] * self.expected_hr))
-
-        surrogate_trainer.opt.zero_grad()
-        fake_user_embedding = surrogate_model.embedding.weight[temp_fake_user_tensor]
-        sim = self.diverse_weight * F.softplus(torch.mm(fake_user_embedding, fake_user_embedding.t()).fill_diagonal_(-np.inf)).mean()
-        l2 = self.l2_weight * (torch.norm(fake_user_embedding, dim=1, p=2) ** 2).mean()
-        reg_loss = sim + l2
-        reg_loss.backward()
-        surrogate_trainer.opt.step()
-        return losses.avg
-
-    def train_fake(self, surrogate_model, surrogate_trainer, temp_fake_user_tensor):
-        opt = SGD(surrogate_model.parameters(), lr=self.look_ahead_lr)
-        with higher.innerloop_ctx(surrogate_model, opt) as (fmodel, diffopt):
-            fmodel.train()
-            scores, l2_norm = fmodel.forward(temp_fake_user_tensor)
-            score_n = scores.mean(dim=1, keepdim=True).detach()
-            scores, l2_norm = scores[:, self.target_item_tensor], l2_norm[:, self.target_item_tensor]
-            loss = F.softplus(score_n - scores) + surrogate_trainer.l2_reg * l2_norm
-            diffopt.step(loss.sum())
-
-            fmodel.eval()
-            adv_loss = self.train_fake_batch(surrogate_model, surrogate_trainer, temp_fake_user_tensor, fmodel)
-        return loss.mean().item(), adv_loss.item()
-
-    def add_filler_items(self, surrogate_model, temp_fake_user_tensor, fre_bias):
+    def add_filler_items(self, surrogate_model, temp_fake_user_tensor, prob):
         with torch.no_grad():
-            scores = surrogate_model.predict(temp_fake_user_tensor)
+            scores = torch.sigmoid(surrogate_model.predict(temp_fake_user_tensor))
         for u_idx, f_u in enumerate(temp_fake_user_tensor):
-            item_score = scores[u_idx, :] + fre_bias
+            item_score = scores[u_idx, :] * prob
             filler_items = item_score.topk(self.n_inters - self.target_items.shape[0]).indices
-            fre_bias[filler_items] -= self.fre_bias
+            prob[filler_items] *= self.prob
 
             filler_items = filler_items.cpu().numpy().tolist()
             self.fake_user_inters[f_u - self.n_users] = filler_items + self.target_items.tolist()
             self.dataset.train_data[f_u].update(filler_items)
             self.dataset.train_array += [[f_u, item] for item in filler_items]
 
-    def retrain_surrogate(self, temp_fake_user_tensor, fake_nums_str, fre_bias, verbose, writer):
+    def retrain_surrogate(self, temp_fake_user_tensor, fake_nums_str, prob, verbose, writer):
         surrogate_model = get_model(self.surrogate_model_config, self.dataset)
+        self.surrogate_model_config['temp_fake_user_tensor'] = temp_fake_user_tensor
+        self.surrogate_model_config['attacker'] = self
         surrogate_trainer = get_trainer(self.surrogate_trainer_config, surrogate_model)
         for training_epoch in range(self.n_training_epochs):
             start_time = time.time()
 
             surrogate_model.train()
-            t_loss = surrogate_trainer.train_one_epoch(None)
-            unroll_loss, adv_loss = self.train_fake(surrogate_model, surrogate_trainer, temp_fake_user_tensor)
+            t_loss, adv_loss, diverse_loss, l2_loss = surrogate_trainer.train_one_epoch(None)
 
             target_hr = get_target_hr(surrogate_model, self.target_user_loader, self.target_item_tensor, self.topk)
             consumed_time = time.time() - start_time
             vprint('Training Epoch {:d}/{:d}, Time: {:.3f}s, Train Loss: {:.6f}, '
-                   'Unroll Loss: {:.6f}, Adv Loss: {:.6f},Target Hit Ratio {:.6f}%'.
+                   'Adv Loss: {:.6f}, Diverse Loss: {:.6f}, L2 Loss: {:.6f}, Target Hit Ratio {:.6f}%'.
                    format(training_epoch, self.n_training_epochs, consumed_time, t_loss,
-                          unroll_loss, adv_loss, target_hr * 100.), verbose)
+                          adv_loss, diverse_loss, l2_loss, target_hr * 100.), verbose)
             writer_tag = '{:s}_{:s}'.format(self.name, fake_nums_str)
             if writer:
                 writer.add_scalar(writer_tag + '/Hit_Ratio@' + str(self.topk), target_hr, training_epoch)
-        self.add_filler_items(surrogate_model, temp_fake_user_tensor, fre_bias)
+        self.add_filler_items(surrogate_model, temp_fake_user_tensor, prob)
 
     def generate_fake_users(self, verbose=True, writer=None):
-        fre_bias = torch.zeros(self.n_items, dtype=torch.float32, device=self.device)
-        fre_bias[self.target_item_tensor] = -np.inf
+        prob = torch.ones(self.n_items, dtype=torch.float32, device=self.device)
+        prob[self.target_item_tensor] = 0.
         fake_user_end_indices = list(np.arange(0, self.n_fakes, self.step_user, dtype=np.int64)) + [self.n_fakes]
         for i_step in range(1, len(fake_user_end_indices)):
             start_time = time.time()
@@ -128,7 +90,7 @@ class FLOJOAttacker(BasicAttacker):
                                          temp_fake_user_tensor]
             self.dataset.n_users += n_temp_fakes
 
-            self.retrain_surrogate(temp_fake_user_tensor, fake_nums_str, fre_bias, verbose, writer)
+            self.retrain_surrogate(temp_fake_user_tensor, fake_nums_str, prob, verbose, writer)
 
             consumed_time = time.time() - start_time
             self.consumed_time += consumed_time

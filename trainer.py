@@ -6,11 +6,13 @@ from torch.optim import Adam, SGD
 import time
 import numpy as np
 import os
-from utils import AverageMeter, generate_adj_mat, vprint
+from utils import AverageMeter, generate_adj_mat, vprint, goal_oriented_loss
 import torch.nn.functional as F
 import scipy.sparse as sp
 import optuna
 from utils import mse_loss, TorchSparseMat
+import random
+import higher
 
 
 def get_trainer(config, model):
@@ -214,6 +216,70 @@ class BPRTrainer(BasicTrainer):
             self.opt.step()
             losses.update(loss.item(), inputs.shape[0])
         return losses.avg
+
+
+class FLOJOBPRTrainer(BPRTrainer):
+    def __init__(self, trainer_config):
+        super(FLOJOBPRTrainer, self).__init__(trainer_config)
+        self.temp_fake_user_tensor = trainer_config['temp_fake_user_tensor']
+        self.attacker = trainer_config['attacker']
+
+    def train_fake_batch(self, adv_losses, diverse_losses, l2_losses):
+        users = next(iter(self.attacker.target_user_loader))[0]
+        opt = SGD(self.model.parameters(), lr=self.attacker.look_ahead_lr)
+        with higher.innerloop_ctx(self.model, opt) as (fmodel, diffopt):
+            fmodel.train()
+            scores, l2_norm = fmodel.forward(self.temp_fake_user_tensor)
+            score_n = scores.mean(dim=1, keepdim=True).detach()
+            scores, l2_norm = scores[:, self.attacker.target_item_tensor], l2_norm[:, self.attacker.target_item_tensor]
+            unroll_train_loss = F.softplus(score_n - scores) + self.l2_reg * l2_norm
+            diffopt.step(unroll_train_loss.sum())
+
+            fmodel.eval()
+            scores = fmodel.predict(users)
+            target_scores = scores[:, self.attacker.target_item_tensor]
+            top_scores = scores.topk(self.attacker.topk, dim=1).values[:, -1:]
+            adv_loss = goal_oriented_loss(target_scores, top_scores, self.attacker.expected_hr)
+            surrogate_embedding = fmodel.init_fast_params[0]
+            fake_user_embedding = surrogate_embedding[self.temp_fake_user_tensor]
+            sim = F.softplus(torch.mm(fake_user_embedding, fake_user_embedding.t()).fill_diagonal_(-np.inf)).mean()
+            l2 = (torch.norm(fake_user_embedding, dim=1, p=2) ** 2).mean()
+            total_fake_loss = self.attacker.adv_weight * adv_loss + self.attacker.diverse_weight * sim + self.l2_reg * l2
+            adv_grads = torch.autograd.grad(total_fake_loss, surrogate_embedding, retain_graph=True)[0]
+
+            self.opt.zero_grad()
+            self.model.embedding.weight.grad = torch.zeros_like(adv_grads)
+            self.model.embedding.weight.grad[self.temp_fake_user_tensor] = adv_grads[self.temp_fake_user_tensor]
+            self.opt.step()
+        adv_losses.update(adv_loss.item(), users.shape[0])
+        diverse_losses.update(sim.item())
+        l2_losses.update(l2.item())
+
+    def train_one_epoch(self, epoch):
+        self.dataset.negative_sample_ratio = self.negative_sample_ratio
+        train_losses = AverageMeter()
+        adv_losses = AverageMeter()
+        diverse_losses = AverageMeter()
+        l2_losses = AverageMeter()
+        for batch_data in self.dataloader:
+            if random.random() < self.attacker.train_fake_ratio:
+                self.train_fake_batch(adv_losses, diverse_losses, l2_losses)
+            inputs = batch_data[:, 0, :].to(device=self.device, dtype=torch.int64)
+            users, pos_items, neg_items = inputs[:, 0], inputs[:, 1], inputs[:, 2]
+
+            users_r, pos_items_r, neg_items_r, l2_norm_sq = \
+                self.model.bpr_forward(users, pos_items, neg_items)
+            pos_scores = torch.sum(users_r * pos_items_r, dim=1)
+            neg_scores = torch.sum(users_r * neg_items_r, dim=1)
+
+            bpr_loss = F.softplus(neg_scores - pos_scores).mean()
+            reg_loss = self.l2_reg * l2_norm_sq.mean()
+            loss = bpr_loss + reg_loss
+            self.opt.zero_grad()
+            loss.backward()
+            self.opt.step()
+            train_losses.update(loss.item(), inputs.shape[0])
+        return train_losses.avg, adv_losses.avg, diverse_losses.avg, l2_losses.avg
 
 
 class APRTrainer(BasicTrainer):

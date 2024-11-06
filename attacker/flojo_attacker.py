@@ -55,7 +55,7 @@ class FLOJOAttacker(BasicAttacker):
         surrogate_trainer.opt.zero_grad()
         fake_user_embedding = surrogate_model.embedding.weight[temp_fake_user_tensor]
         sim = self.diverse_weight * F.softplus(torch.mm(fake_user_embedding, fake_user_embedding.t()).fill_diagonal_(-np.inf)).mean()
-        l2 = self.diverse_weight * (torch.norm(fake_user_embedding, dim=1, p=2) ** 2).mean()
+        l2 = self.l2_weight * (torch.norm(fake_user_embedding, dim=1, p=2) ** 2).mean()
         reg_loss = sim + l2
         reg_loss.backward()
         surrogate_trainer.opt.step()

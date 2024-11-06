@@ -13,10 +13,10 @@ import numpy as np
 
 
 def objective(trial):
-    adv_weight = trial.suggest_categorical('adv_weight', [0.0001])
-    diverse_weight = trial.suggest_categorical('diverse_weight', [0.01])
-    l2_weight = trial.suggest_categorical('l2_weight', [0.01])
-    look_ahead_lr = trial.suggest_categorical('look_ahead_lr', [0.01])
+    adv_weight = trial.suggest_categorical('adv_weight', [0.01, 0.001])
+    diverse_weight = trial.suggest_categorical('diverse_weight', [0.1, 0.01])
+    l2_weight = trial.suggest_categorical('l2_weight', [0.1, 0.01])
+    look_ahead_lr = trial.suggest_categorical('look_ahead_lr', [0.1, 0.01])
     set_seed(2023)
     device = torch.device('cuda')
     dataset_config, model_config, trainer_config = get_config(device)[0]
@@ -28,7 +28,7 @@ def objective(trial):
                        'expected_hr': 0.1, 'step_user': 10,
                        'n_training_epochs': 10, 'adv_weight': adv_weight,
                        'diverse_weight': diverse_weight, 'l2_weight': l2_weight,
-                       'look_ahead_lr': look_ahead_lr, 'fre_bias': 0.05,
+                       'look_ahead_lr': look_ahead_lr, 'fre_bias': 0.02,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
 

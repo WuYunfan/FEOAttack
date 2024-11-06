@@ -26,8 +26,9 @@ class FLOJOAttacker(BasicAttacker):
         self.step_user = attacker_config['step_user']
         self.n_training_epochs = attacker_config['n_training_epochs']
         self.adv_weight = attacker_config['adv_weight']
+        self.diverse_weight = attacker_config['diverse_weight']
+        self.l2_weight = attacker_config['l2_weight']
         self.look_ahead_lr = attacker_config['look_ahead_lr']
-        self.train_fake_its = attacker_config['train_fake_its']
         self.fre_bias = attacker_config['fre_bias']
 
         self.target_item_tensor = torch.tensor(self.target_items, dtype=torch.int64, device=self.device)
@@ -42,7 +43,7 @@ class FLOJOAttacker(BasicAttacker):
             scores = fmodel.predict(users)
             target_scores = scores[:, self.target_item_tensor]
             top_scores = scores.topk(self.topk, dim=1).values[:, -1:]
-            adv_loss =  goal_oriented_loss(target_scores, top_scores, self.expected_hr)
+            adv_loss = goal_oriented_loss(target_scores, top_scores, self.expected_hr)
             adv_grads = torch.autograd.grad(adv_loss, fmodel.parameters(time=0), retain_graph=True)[0]
 
             surrogate_trainer.opt.zero_grad()
@@ -50,22 +51,29 @@ class FLOJOAttacker(BasicAttacker):
             surrogate_model.embedding.weight.grad[temp_fake_user_tensor] = self.adv_weight * adv_grads[temp_fake_user_tensor]
             surrogate_trainer.opt.step()
             losses.update(adv_loss.item(), int(users.shape[0] * self.target_items.shape[0] * self.expected_hr))
+
+        surrogate_trainer.opt.zero_grad()
+        fake_user_embedding = surrogate_model.embedding.weight[temp_fake_user_tensor]
+        sim = self.diverse_weight * F.softplus(torch.mm(fake_user_embedding, fake_user_embedding.t()).fill_diagonal_(-np.inf)).mean()
+        l2 = self.diverse_weight * (torch.norm(fake_user_embedding, dim=1, p=2) ** 2).mean()
+        reg_loss = sim + l2
+        reg_loss.backward()
+        surrogate_trainer.opt.step()
         return losses.avg
 
-    def train_fake(self, surrogate_model, surrogate_trainer, temp_fake_user_tensor, it, verbose):
+    def train_fake(self, surrogate_model, surrogate_trainer, temp_fake_user_tensor):
         opt = SGD(surrogate_model.parameters(), lr=self.look_ahead_lr)
         with higher.innerloop_ctx(surrogate_model, opt) as (fmodel, diffopt):
             fmodel.train()
-            scores, _ = fmodel.forward(temp_fake_user_tensor)
+            scores, l2_norm = fmodel.forward(temp_fake_user_tensor)
             score_n = scores.mean(dim=1, keepdim=True).detach()
-            loss = F.softplus(score_n - scores[:, self.target_item_tensor])
+            scores, l2_norm = scores[:, self.target_item_tensor], l2_norm[:, self.target_item_tensor]
+            loss = F.softplus(score_n - scores) + surrogate_trainer.l2_reg * l2_norm
             diffopt.step(loss.sum())
-            vprint('Unroll train loss {:.6f}'.format(loss.mean().item()), verbose)
 
             fmodel.eval()
             adv_loss = self.train_fake_batch(surrogate_model, surrogate_trainer, temp_fake_user_tensor, fmodel)
-
-        vprint('Iteration {:d}: Adversarial Loss: {:.6f}'.format(it, adv_loss), verbose)
+        return loss.mean().item(), adv_loss.item()
 
     def add_filler_items(self, surrogate_model, temp_fake_user_tensor, fre_bias):
         with torch.no_grad():
@@ -88,13 +96,14 @@ class FLOJOAttacker(BasicAttacker):
 
             surrogate_model.train()
             t_loss = surrogate_trainer.train_one_epoch(None)
-            for it in range(self.train_fake_its):
-                self.train_fake(surrogate_model, surrogate_trainer, temp_fake_user_tensor, it, verbose)
+            unroll_loss, adv_loss = self.train_fake(surrogate_model, surrogate_trainer, temp_fake_user_tensor)
 
             target_hr = get_target_hr(surrogate_model, self.target_user_loader, self.target_item_tensor, self.topk)
             consumed_time = time.time() - start_time
-            vprint('Training Epoch {:d}/{:d}, Time: {:.3f}s, Train Loss: {:.6f}, Target Hit Ratio {:.6f}%'.
-                   format(training_epoch, self.n_training_epochs, consumed_time, t_loss, target_hr * 100.), verbose)
+            vprint('Training Epoch {:d}/{:d}, Time: {:.3f}s, Train Loss: {:.6f}, '
+                   'Unroll Loss: {:.6f}, Adv Loss: {:.6f},Target Hit Ratio {:.6f}%'.
+                   format(training_epoch, self.n_training_epochs, consumed_time, t_loss,
+                          unroll_loss, adv_loss, target_hr * 100.), verbose)
             writer_tag = '{:s}_{:s}'.format(self.name, fake_nums_str)
             if writer:
                 writer.add_scalar(writer_tag + '/Hit_Ratio@' + str(self.topk), target_hr, training_epoch)

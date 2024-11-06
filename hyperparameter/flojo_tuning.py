@@ -20,10 +20,10 @@ def objective(trial):
     device = torch.device('cuda')
     dataset_config, model_config, trainer_config = get_config(device)[0]
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
-    surrogate_trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': 0.01, 'l2_reg': 0.001,
+    surrogate_trainer_config = {'name': 'FLOJOBPRTrainer', 'optimizer': 'Adam', 'lr': 0.01, 'l2_reg': 0.001,
                                 'n_epochs': 0, 'batch_size': 2 ** 14, 'dataloader_num_workers': 6,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
-    attacker_config = {'name': 'FLOJOBPRTrainer', 'n_fakes': 131, 'topk': 50, 'n_inters': 41,
+    attacker_config = {'name': 'FLOJOAttacker', 'n_fakes': 131, 'topk': 50, 'n_inters': 41,
                        'expected_hr': 0.1, 'step_user': 10, 'n_training_epochs': 10,
                        'adv_weight': adv_weight, 'diverse_weight': diverse_weight, 'look_ahead_lr': look_ahead_lr,
                        'train_fake_ratio': 0.01, 'prob': 0.9,

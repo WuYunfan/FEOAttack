@@ -51,20 +51,20 @@ class FLOJOAttacker(BasicAttacker):
 
     def retrain_surrogate(self, temp_fake_user_tensor, fake_nums_str, prob, verbose, writer):
         surrogate_model = get_model(self.surrogate_model_config, self.dataset)
-        self.surrogate_model_config['temp_fake_user_tensor'] = temp_fake_user_tensor
-        self.surrogate_model_config['attacker'] = self
+        self.surrogate_trainer_config['temp_fake_user_tensor'] = temp_fake_user_tensor
+        self.surrogate_trainer_config['attacker'] = self
         surrogate_trainer = get_trainer(self.surrogate_trainer_config, surrogate_model)
         for training_epoch in range(self.n_training_epochs):
             start_time = time.time()
 
             surrogate_model.train()
-            t_loss, adv_loss, diverse_loss, l2_loss = surrogate_trainer.train_one_epoch(None)
+            t_loss, unroll_loss, adv_loss, diverse_loss, l2_loss = surrogate_trainer.train_one_epoch(None)
 
             target_hr = get_target_hr(surrogate_model, self.target_user_loader, self.target_item_tensor, self.topk)
             consumed_time = time.time() - start_time
-            vprint('Training Epoch {:d}/{:d}, Time: {:.3f}s, Train Loss: {:.6f}, '
+            vprint('Training Epoch {:d}/{:d}, Time: {:.3f}s, Train Loss: {:.6f}, Unroll Train Loss: {:.6f}'
                    'Adv Loss: {:.6f}, Diverse Loss: {:.6f}, L2 Loss: {:.6f}, Target Hit Ratio {:.6f}%'.
-                   format(training_epoch, self.n_training_epochs, consumed_time, t_loss,
+                   format(training_epoch, self.n_training_epochs, consumed_time, t_loss, unroll_loss,
                           adv_loss, diverse_loss, l2_loss, target_hr * 100.), verbose)
             writer_tag = '{:s}_{:s}'.format(self.name, fake_nums_str)
             if writer:

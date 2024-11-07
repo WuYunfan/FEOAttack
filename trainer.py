@@ -13,6 +13,7 @@ import optuna
 from utils import mse_loss, TorchSparseMat
 import random
 import higher
+import itertools
 
 
 def get_trainer(config, model):
@@ -267,7 +268,7 @@ class FLOJOBPRTrainer(BPRTrainer):
         diverse_losses = AverageMeter()
         l2_losses = AverageMeter()
         for batch_data in self.dataloader:
-            while random.random() < self.attacker.train_fake_ratio:
+            while random.random() < self.attacker.train_fake_prob:
                 self.train_fake_batch(unroll_train_losses, adv_losses, diverse_losses, l2_losses)
             inputs = batch_data[:, 0, :].to(device=self.device, dtype=torch.int64)
             users, pos_items, neg_items = inputs[:, 0], inputs[:, 1], inputs[:, 2]

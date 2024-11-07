@@ -30,7 +30,7 @@ class FLOJOAttacker(BasicAttacker):
         self.diverse_weight = attacker_config['diverse_weight']
         self.l2_weight = attacker_config['l2_weight']
         self.look_ahead_lr = attacker_config['look_ahead_lr']
-        self.train_fake_ratio = attacker_config['train_fake_ratio']
+        self.train_fake_prob = attacker_config['train_fake_prob']
         self.prob = attacker_config['prob']
 
         self.target_item_tensor = torch.tensor(self.target_items, dtype=torch.int64, device=self.device)
@@ -61,7 +61,7 @@ class FLOJOAttacker(BasicAttacker):
 
             surrogate_model.train()
             t_loss, unroll_train_losses, adv_losses, diverse_losses, l2_losses = surrogate_trainer.train_one_epoch(None)
-            for _ in range(temp_fake_user_tensor // self.batch_user * len(self.target_user_loader)):
+            for _ in range(temp_fake_user_tensor.shape[0] // self.batch_user * len(self.target_user_loader)):
                 surrogate_trainer.train_fake_batch(unroll_train_losses, adv_losses, diverse_losses, l2_losses)
 
             target_hr = get_target_hr(surrogate_model, self.target_user_loader, self.target_item_tensor, self.topk)
@@ -90,8 +90,7 @@ class FLOJOAttacker(BasicAttacker):
 
             self.dataset.train_data += [set(self.target_items) for _ in range(n_temp_fakes)]
             self.dataset.val_data += [set() for _ in range(n_temp_fakes)]
-            self.dataset.train_array += [[fake_u, item] for item in self.target_items for fake_u in
-                                         temp_fake_user_tensor]
+            self.dataset.train_array += [[f_u, item] for item in self.target_items for f_u in temp_fake_user_tensor]
             self.dataset.n_users += n_temp_fakes
 
             self.retrain_surrogate(temp_fake_user_tensor, fake_nums_str, prob, verbose, writer)

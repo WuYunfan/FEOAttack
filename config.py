@@ -245,18 +245,18 @@ def get_amazon_attacker_config():
     amazon_attacker_config.append(attacker_config)
 
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
-    surrogate_trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam', 'lr': None, 'l2_reg': None,
+    surrogate_trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam', 'lr': 0.1, 'l2_reg': 0.001,
                                 'n_epochs': 1, 'batch_size': 2 ** 13, 'dataloader_num_workers': 10,
                                 'test_batch_size': 4096, 'topks': [50], 'neg_ratio': 4, 'verbose': False}
     attacker_config = {'name': 'DPA2DLAttacker', 'n_fakes': 1348, 'topk': 50,
-                       'n_inters': 62, 'reg_u': None, 'prob': 0.99, 'kappa': 1.,
-                       'step': 10, 'alpha': None, 'n_rounds': 1,
+                       'n_inters': 62, 'reg_u': 0.0001, 'prob': 0.99, 'kappa': 1.,
+                       'step': 10, 'alpha': 0.01, 'n_rounds': 1,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
     amazon_attacker_config.append(attacker_config)
 
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
-    surrogate_trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': None, 'l2_reg': None,
+    surrogate_trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': 0.001, 'l2_reg': 0.0001,
                                 'n_epochs': 5, 'batch_size': 2 ** 15, 'dataloader_num_workers': 10,
                                 'test_batch_size': 4096, 'topks': [50], 'verbose': False}
     attacker_config = {'name': 'RAPURAttacker', 'n_fakes': 1348, 'topk': 50,

@@ -225,14 +225,15 @@ class FLOJOBPRTrainer(BPRTrainer):
         self.attacker = trainer_config['attacker']
 
     def train_fake_batch(self, unroll_train_losses, adv_losses, diverse_losses, l2_losses):
+        batch_fake_indices = np.random.choice(self.temp_fake_user_tensor.shape[0], size=self.attacker.batch_user, replace=False)
+        temp_fake_user_tensor = self.temp_fake_user_tensor[batch_fake_indices]
         users = next(iter(self.attacker.target_user_loader))[0]
         opt = SGD(self.model.parameters(), lr=self.attacker.look_ahead_lr)
         with higher.innerloop_ctx(self.model, opt) as (fmodel, diffopt):
             fmodel.train()
-            scores, l2_norm = fmodel.forward(self.temp_fake_user_tensor)
+            scores, _ = fmodel.forward(temp_fake_user_tensor)
             score_n = scores.mean(dim=1, keepdim=True).detach()
-            scores, l2_norm = scores[:, self.attacker.target_item_tensor], l2_norm[:, self.attacker.target_item_tensor]
-            unroll_train_loss = F.softplus(score_n - scores) + self.l2_reg * l2_norm
+            unroll_train_loss = F.softplus(score_n - scores[:, self.attacker.target_item_tensor])
             diffopt.step(unroll_train_loss.sum())
 
             fmodel.eval()
@@ -242,9 +243,11 @@ class FLOJOBPRTrainer(BPRTrainer):
             adv_loss = goal_oriented_loss(target_scores, top_scores, self.attacker.expected_hr)
             surrogate_embedding = fmodel.init_fast_params[0]
             fake_user_embedding = surrogate_embedding[self.temp_fake_user_tensor, :]
-            sim = F.softplus(torch.mm(fake_user_embedding, fake_user_embedding.t()).fill_diagonal_(-np.inf)).mean()
-            l2 = (torch.norm(fake_user_embedding, dim=1, p=2) ** 2).mean()
-            total_fake_loss = self.attacker.adv_weight * adv_loss + self.attacker.diverse_weight * sim + self.l2_reg * l2
+            sim = F.softplus(torch.mm(fake_user_embedding[batch_fake_indices, :], fake_user_embedding.t().detach()).fill_diagonal_(-np.inf)).mean()
+            l2 = (torch.norm(fake_user_embedding[batch_fake_indices, :], dim=1, p=2) ** 2).mean()
+            total_fake_loss = self.attacker.adv_weight * adv_loss
+            total_fake_loss += self.attacker.diverse_weight * sim
+            total_fake_loss += self.attacker.l2_weight * l2
             adv_grads = torch.autograd.grad(total_fake_loss, surrogate_embedding)[0]
 
             self.opt.zero_grad()
@@ -264,7 +267,7 @@ class FLOJOBPRTrainer(BPRTrainer):
         diverse_losses = AverageMeter()
         l2_losses = AverageMeter()
         for batch_data in self.dataloader:
-            if random.random() < self.attacker.train_fake_ratio:
+            while random.random() < self.attacker.train_fake_ratio:
                 self.train_fake_batch(unroll_train_losses, adv_losses, diverse_losses, l2_losses)
             inputs = batch_data[:, 0, :].to(device=self.device, dtype=torch.int64)
             users, pos_items, neg_items = inputs[:, 0], inputs[:, 1], inputs[:, 2]
@@ -281,7 +284,7 @@ class FLOJOBPRTrainer(BPRTrainer):
             loss.backward()
             self.opt.step()
             train_losses.update(loss.item(), inputs.shape[0])
-        return train_losses.avg, unroll_train_losses.avg, adv_losses.avg, diverse_losses.avg, l2_losses.avg
+        return train_losses.avg, unroll_train_losses, adv_losses, diverse_losses, l2_losses
 
 
 class APRTrainer(BasicTrainer):

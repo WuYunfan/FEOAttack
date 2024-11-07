@@ -24,9 +24,11 @@ class FLOJOAttacker(BasicAttacker):
 
         self.expected_hr = attacker_config['expected_hr']
         self.step_user = attacker_config['step_user']
+        self.batch_user = attacker_config['batch_user']
         self.n_training_epochs = attacker_config['n_training_epochs']
         self.adv_weight = attacker_config['adv_weight']
         self.diverse_weight = attacker_config['diverse_weight']
+        self.l2_weight = attacker_config['l2_weight']
         self.look_ahead_lr = attacker_config['look_ahead_lr']
         self.train_fake_ratio = attacker_config['train_fake_ratio']
         self.prob = attacker_config['prob']
@@ -58,14 +60,16 @@ class FLOJOAttacker(BasicAttacker):
             start_time = time.time()
 
             surrogate_model.train()
-            t_loss, unroll_loss, adv_loss, diverse_loss, l2_loss = surrogate_trainer.train_one_epoch(None)
+            t_loss, unroll_train_losses, adv_losses, diverse_losses, l2_losses = surrogate_trainer.train_one_epoch(None)
+            for _ in range(temp_fake_user_tensor // self.batch_user * len(self.target_user_loader)):
+                surrogate_trainer.train_fake_batch(unroll_train_losses, adv_losses, diverse_losses, l2_losses)
 
             target_hr = get_target_hr(surrogate_model, self.target_user_loader, self.target_item_tensor, self.topk)
             consumed_time = time.time() - start_time
-            vprint('Training Epoch {:d}/{:d}, Time: {:.3f}s, Train Loss: {:.6f}, Unroll Train Loss: {:.6f}'
+            vprint('Training Epoch {:d}/{:d}, Time: {:.3f}s, Train Loss: {:.6f}, Unroll Train Loss: {:.6f}, '
                    'Adv Loss: {:.6f}, Diverse Loss: {:.6f}, L2 Loss: {:.6f}, Target Hit Ratio {:.6f}%'.
-                   format(training_epoch, self.n_training_epochs, consumed_time, t_loss, unroll_loss,
-                          adv_loss, diverse_loss, l2_loss, target_hr * 100.), verbose)
+                   format(training_epoch, self.n_training_epochs, consumed_time, t_loss, unroll_train_losses.avg,
+                          adv_losses.avg, diverse_losses.avg, l2_losses.avg, target_hr * 100.), verbose)
             writer_tag = '{:s}_{:s}'.format(self.name, fake_nums_str)
             if writer:
                 writer.add_scalar(writer_tag + '/Hit_Ratio@' + str(self.topk), target_hr, training_epoch)

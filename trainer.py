@@ -224,21 +224,24 @@ class FLOJOBPRTrainer(BPRTrainer):
         super(FLOJOBPRTrainer, self).__init__(trainer_config)
         self.temp_fake_user_tensor = trainer_config['temp_fake_user_tensor']
         self.attacker = trainer_config['attacker']
+        fake_user_indices = TensorDataset(torch.arange(self.temp_fake_user_tensor.shape[0], dtype=torch.int64, device=self.device))
+        self.fake_user_loader = DataLoader(fake_user_indices, batch_size=self.attacker.batch_user, shuffle=True)
+        self.fake_user_iter = itertools.cycle(self.fake_user_loader)
+        self.target_user_iter = itertools.cycle(self.attacker.target_user_loader)
 
     def train_fake_batch(self, unroll_train_losses, adv_losses, diverse_losses, l2_losses):
-        batch_fake_indices = np.random.choice(self.temp_fake_user_tensor.shape[0], size=self.attacker.batch_user, replace=False)
-        temp_fake_user_tensor = self.temp_fake_user_tensor[batch_fake_indices]
-        users = next(iter(self.attacker.target_user_loader))[0]
+        batch_fake_indices = next(self.fake_user_iter)[0]
+        target_user = next(self.target_user_iter)[0]
         opt = SGD(self.model.parameters(), lr=self.attacker.look_ahead_lr)
         with higher.innerloop_ctx(self.model, opt) as (fmodel, diffopt):
             fmodel.train()
-            scores, _ = fmodel.forward(temp_fake_user_tensor)
+            scores, _ = fmodel.forward(self.temp_fake_user_tensor[batch_fake_indices])
             score_n = scores.mean(dim=1, keepdim=True).detach()
             unroll_train_loss = F.softplus(score_n - scores[:, self.attacker.target_item_tensor])
             diffopt.step(unroll_train_loss.sum())
 
             fmodel.eval()
-            scores = fmodel.predict(users)
+            scores = fmodel.predict(target_user)
             target_scores = scores[:, self.attacker.target_item_tensor]
             top_scores = scores.topk(self.attacker.topk, dim=1).values[:, -1:]
             adv_loss = goal_oriented_loss(target_scores, top_scores, self.attacker.expected_hr)
@@ -256,7 +259,7 @@ class FLOJOBPRTrainer(BPRTrainer):
             self.model.embedding.weight.grad[self.temp_fake_user_tensor, :] = adv_grads[self.temp_fake_user_tensor, :]
             self.opt.step()
         unroll_train_losses.update(unroll_train_loss.mean().item())
-        adv_losses.update(adv_loss.item(), users.shape[0])
+        adv_losses.update(adv_loss.item(), target_user.shape[0])
         diverse_losses.update(sim.item())
         l2_losses.update(l2.item())
 

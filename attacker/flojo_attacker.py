@@ -61,7 +61,7 @@ class FLOJOAttacker(BasicAttacker):
 
             surrogate_model.train()
             t_loss, unroll_train_losses, adv_losses, diverse_losses, l2_losses = surrogate_trainer.train_one_epoch(None)
-            for _ in range(temp_fake_user_tensor.shape[0] // self.batch_user * len(self.target_user_loader)):
+            for _ in range(len(surrogate_trainer.fake_user_loader) * len(self.target_user_loader)):
                 surrogate_trainer.train_fake_batch(unroll_train_losses, adv_losses, diverse_losses, l2_losses)
 
             target_hr = get_target_hr(surrogate_model, self.target_user_loader, self.target_item_tensor, self.topk)

@@ -13,20 +13,22 @@ import numpy as np
 
 
 def objective(trial):
-    adv_weight = trial.suggest_categorical('adv_weight', [0.1, 0.01, 0.001])
-    train_fake_interval = trial.suggest_categorical('train_fake_interval', [1., 0.51, 0.26])
-    prob = trial.suggest_categorical('prob', [0.9, 0.95, 0.99])
+    adv_weight = trial.suggest_categorical('adv_weight', [0.01, 0.001])
+    diverse_weight = trial.suggest_categorical('diverse_weight', [0.1, 0.01, 0.001])
+    l2_weight = trial.suggest_categorical('l2_weight', [0.01, 0.001])
+    prob = trial.suggest_categorical('prob', [0.9, 0.99, 0.999])
+    expected_hr = trial.suggest_categorical('expected_hr', [0.01, 0.05, 0.1, 1.])
     set_seed(2023)
     device = torch.device('cuda')
     dataset_config, model_config, trainer_config = get_config(device)[0]
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
-    surrogate_trainer_config = {'name': 'FLOJOBPRTrainer', 'optimizer': 'Adam', 'lr': 0.01, 'l2_reg': 0.001,
+    surrogate_trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': 0.01, 'l2_reg': 0.001,
                                 'n_epochs': 0, 'batch_size': 2 ** 14, 'dataloader_num_workers': 6,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
     attacker_config = {'name': 'FLOJOAttacker', 'n_fakes': 131, 'topk': 50, 'n_inters': 41,
-                       'expected_hr': 0.1, 'step_user': 10, 'batch_user': 4, 'n_training_epochs': 10,
-                       'adv_weight': adv_weight, 'diverse_weight': 0.01, 'l2_weight': 0.001,
-                       'look_ahead_lr': 0.1, 'train_fake_interval': train_fake_interval, 'prob': prob,
+                       'expected_hr': expected_hr, 'step_user': 10, 'n_training_epochs': 10,
+                       'adv_weight': adv_weight, 'diverse_weight': diverse_weight, 'l2_weight': l2_weight,
+                       'look_ahead_lr': 0.1, 'prob': prob,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
 

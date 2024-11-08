@@ -24,13 +24,11 @@ class FLOJOAttacker(BasicAttacker):
 
         self.expected_hr = attacker_config['expected_hr']
         self.step_user = attacker_config['step_user']
-        self.batch_user = attacker_config['batch_user']
         self.n_training_epochs = attacker_config['n_training_epochs']
         self.adv_weight = attacker_config['adv_weight']
         self.diverse_weight = attacker_config['diverse_weight']
         self.l2_weight = attacker_config['l2_weight']
         self.look_ahead_lr = attacker_config['look_ahead_lr']
-        self.train_fake_interval = attacker_config['train_fake_interval']
         self.prob = attacker_config['prob']
 
         self.target_item_tensor = torch.tensor(self.target_items, dtype=torch.int64, device=self.device)
@@ -51,16 +49,55 @@ class FLOJOAttacker(BasicAttacker):
             self.dataset.train_data[f_u].update(filler_items)
             self.dataset.train_array += [[f_u, item] for item in filler_items]
 
+    def train_fake(self, surrogate_model, surrogate_trainer, temp_fake_user_tensor):
+        unroll_train_losses = AverageMeter()
+        adv_losses = AverageMeter()
+        diverse_losses = AverageMeter()
+        l2_losses = AverageMeter()
+        for target_user in self.target_user_loader:
+            target_user = target_user[0]
+            opt = SGD(self.model.parameters(), lr=self.look_ahead_lr)
+            with higher.innerloop_ctx(self.model, opt) as (fmodel, diffopt):
+                fmodel.train()
+                scores, _ = fmodel.forward(temp_fake_user_tensor)
+                score_n = scores.mean(dim=1, keepdim=True).detach()
+                unroll_train_loss = F.softplus(score_n - scores[:, self.target_item_tensor])
+                diffopt.step(unroll_train_loss.sum())
+
+                fmodel.eval()
+                scores = fmodel.predict(target_user)
+                target_scores = scores[:, self.target_item_tensor]
+                top_scores = scores.topk(self.topk, dim=1).values[:, -1:]
+                adv_loss = goal_oriented_loss(target_scores, top_scores, self.expected_hr)
+                surrogate_embedding = fmodel.init_fast_params[0]
+                fake_user_embedding = surrogate_embedding[temp_fake_user_tensor]
+                sim = F.softplus(torch.mm(fake_user_embedding, fake_user_embedding.t()).fill_diagonal_(-np.inf)).mean()
+                l2 = (torch.norm(fake_user_embedding, dim=1, p=2) ** 2).mean()
+                total_fake_loss = self.adv_weight * adv_loss
+                total_fake_loss += self.diverse_weight * sim
+                total_fake_loss += self.l2_weight * l2
+                adv_grads = torch.autograd.grad(total_fake_loss, surrogate_embedding)[0]
+
+                surrogate_trainer.opt.zero_grad()
+                surrogate_model.embedding.weight.grad = torch.zeros_like(adv_grads)
+                surrogate_model.embedding.weight.grad[temp_fake_user_tensor] = adv_grads[temp_fake_user_tensor]
+                surrogate_trainer.opt.step()
+            unroll_train_losses.update(unroll_train_loss.mean().item())
+            adv_losses.update(adv_loss.item(), target_user.shape[0])
+            diverse_losses.update(sim.item())
+            l2_losses.update(l2.item())
+        return unroll_train_losses.avg, adv_losses.avg, diverse_losses.avg, l2_losses.avg
+
     def retrain_surrogate(self, temp_fake_user_tensor, fake_nums_str, prob, verbose, writer):
         surrogate_model = get_model(self.surrogate_model_config, self.dataset)
-        self.surrogate_trainer_config['temp_fake_user_tensor'] = temp_fake_user_tensor
-        self.surrogate_trainer_config['attacker'] = self
         surrogate_trainer = get_trainer(self.surrogate_trainer_config, surrogate_model)
         for training_epoch in range(self.n_training_epochs):
             start_time = time.time()
 
             surrogate_model.train()
-            t_loss, unroll_train_loss, adv_loss, diverse_loss, l2_loss = surrogate_trainer.train_one_epoch(None)
+            t_loss = surrogate_trainer.train_one_epoch(None)
+            unroll_train_loss, adv_loss, diverse_loss, l2_loss = \
+                self.train_fake(surrogate_model, surrogate_trainer, temp_fake_user_tensor)
 
             target_hr = get_target_hr(surrogate_model, self.target_user_loader, self.target_item_tensor, self.topk)
             consumed_time = time.time() - start_time

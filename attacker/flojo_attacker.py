@@ -30,7 +30,7 @@ class FLOJOAttacker(BasicAttacker):
         self.diverse_weight = attacker_config['diverse_weight']
         self.l2_weight = attacker_config['l2_weight']
         self.look_ahead_lr = attacker_config['look_ahead_lr']
-        self.train_fake_prob = attacker_config['train_fake_prob']
+        self.train_fake_interval = attacker_config['train_fake_interval']
         self.prob = attacker_config['prob']
 
         self.target_item_tensor = torch.tensor(self.target_items, dtype=torch.int64, device=self.device)
@@ -60,16 +60,14 @@ class FLOJOAttacker(BasicAttacker):
             start_time = time.time()
 
             surrogate_model.train()
-            t_loss, unroll_train_losses, adv_losses, diverse_losses, l2_losses = surrogate_trainer.train_one_epoch(None)
-            for _ in range(len(surrogate_trainer.fake_user_loader) * len(self.target_user_loader)):
-                surrogate_trainer.train_fake_batch(unroll_train_losses, adv_losses, diverse_losses, l2_losses)
+            t_loss, unroll_train_loss, adv_loss, diverse_loss, l2_loss = surrogate_trainer.train_one_epoch(None)
 
             target_hr = get_target_hr(surrogate_model, self.target_user_loader, self.target_item_tensor, self.topk)
             consumed_time = time.time() - start_time
             vprint('Training Epoch {:d}/{:d}, Time: {:.3f}s, Train Loss: {:.6f}, Unroll Train Loss: {:.6f}, '
                    'Adv Loss: {:.6f}, Diverse Loss: {:.6f}, L2 Loss: {:.6f}, Target Hit Ratio {:.6f}%'.
-                   format(training_epoch, self.n_training_epochs, consumed_time, t_loss, unroll_train_losses.avg,
-                          adv_losses.avg, diverse_losses.avg, l2_losses.avg, target_hr * 100.), verbose)
+                   format(training_epoch, self.n_training_epochs, consumed_time, t_loss, unroll_train_loss,
+                          adv_loss, diverse_loss, l2_loss, target_hr * 100.), verbose)
             writer_tag = '{:s}_{:s}'.format(self.name, fake_nums_str)
             if writer:
                 writer.add_scalar(writer_tag + '/Hit_Ratio@' + str(self.topk), target_hr, training_epoch)

@@ -88,7 +88,9 @@ class FLOJOAttacker(BasicAttacker):
             l2_losses.update(l2.item())
         return unroll_train_losses.avg, adv_losses.avg, diverse_losses.avg, l2_losses.avg
 
-    def retrain_surrogate(self, temp_fake_user_tensor, fake_nums_str, prob, verbose, writer):
+    def retrain_surrogate(self, temp_fake_user_tensor, fake_nums_str, verbose, writer):
+        prob = torch.ones(self.n_items, dtype=torch.float32, device=self.device)
+        prob[self.target_item_tensor] = 0.
         surrogate_model = get_model(self.surrogate_model_config, self.dataset)
         surrogate_trainer = get_trainer(self.surrogate_trainer_config, surrogate_model)
         for training_epoch in range(self.n_training_epochs):
@@ -108,11 +110,9 @@ class FLOJOAttacker(BasicAttacker):
             writer_tag = '{:s}_{:s}'.format(self.name, fake_nums_str)
             if writer:
                 writer.add_scalar(writer_tag + '/Hit_Ratio@' + str(self.topk), target_hr, training_epoch)
-        self.add_filler_items(surrogate_model, temp_fake_user_tensor, prob)
+        self.add_filler_items(surrogate_model, temp_fake_user_tensor)
 
     def generate_fake_users(self, verbose=True, writer=None):
-        prob = torch.ones(self.n_items, dtype=torch.float32, device=self.device)
-        prob[self.target_item_tensor] = 0.
         fake_user_end_indices = list(np.arange(0, self.n_fakes, self.step_user, dtype=np.int64)) + [self.n_fakes]
         for i_step in range(1, len(fake_user_end_indices)):
             start_time = time.time()
@@ -128,7 +128,7 @@ class FLOJOAttacker(BasicAttacker):
             self.dataset.train_array += [[f_u, item] for item in self.target_items for f_u in temp_fake_user_tensor]
             self.dataset.n_users += n_temp_fakes
 
-            self.retrain_surrogate(temp_fake_user_tensor, fake_nums_str, prob, verbose, writer)
+            self.retrain_surrogate(temp_fake_user_tensor, fake_nums_str, verbose, writer)
 
             consumed_time = time.time() - start_time
             self.consumed_time += consumed_time

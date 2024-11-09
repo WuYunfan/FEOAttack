@@ -36,7 +36,9 @@ class FLOJOAttacker(BasicAttacker):
         self.target_user_loader = DataLoader(target_users, batch_size=self.surrogate_trainer_config['test_batch_size'],
                                              shuffle=True)
 
-    def add_filler_items(self, surrogate_model, temp_fake_user_tensor, prob):
+    def add_filler_items(self, surrogate_model, temp_fake_user_tensor):
+        prob = torch.ones(self.n_items, dtype=torch.float32, device=self.device)
+        prob[self.target_item_tensor] = 0.
         with torch.no_grad():
             scores = torch.sigmoid(surrogate_model.predict(temp_fake_user_tensor))
         for u_idx, f_u in enumerate(temp_fake_user_tensor):
@@ -56,8 +58,8 @@ class FLOJOAttacker(BasicAttacker):
         l2_losses = AverageMeter()
         for target_user in self.target_user_loader:
             target_user = target_user[0]
-            opt = SGD(self.model.parameters(), lr=self.look_ahead_lr)
-            with higher.innerloop_ctx(self.model, opt) as (fmodel, diffopt):
+            opt = SGD(surrogate_model.parameters(), lr=self.look_ahead_lr)
+            with higher.innerloop_ctx(surrogate_model, opt) as (fmodel, diffopt):
                 fmodel.train()
                 scores, _ = fmodel.forward(temp_fake_user_tensor)
                 score_n = scores.mean(dim=1, keepdim=True).detach()
@@ -89,8 +91,6 @@ class FLOJOAttacker(BasicAttacker):
         return unroll_train_losses.avg, adv_losses.avg, diverse_losses.avg, l2_losses.avg
 
     def retrain_surrogate(self, temp_fake_user_tensor, fake_nums_str, verbose, writer):
-        prob = torch.ones(self.n_items, dtype=torch.float32, device=self.device)
-        prob[self.target_item_tensor] = 0.
         surrogate_model = get_model(self.surrogate_model_config, self.dataset)
         surrogate_trainer = get_trainer(self.surrogate_trainer_config, surrogate_model)
         for training_epoch in range(self.n_training_epochs):

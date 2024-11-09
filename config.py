@@ -266,13 +266,13 @@ def get_amazon_attacker_config():
     amazon_attacker_config.append(attacker_config)
 
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
-    surrogate_trainer_config = {'name': 'FLOJOBPRTrainer', 'optimizer': 'Adam', 'lr': 0.01, 'l2_reg': 0.001,
+    surrogate_trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': 0.01, 'l2_reg': 0.001,
                                 'n_epochs': 0, 'batch_size': 2 ** 15, 'dataloader_num_workers': 10,
                                 'test_batch_size': 4096, 'topks': [50], 'verbose': False}
     attacker_config = {'name': 'FLOJOAttacker', 'n_fakes': 1348, 'topk': 50, 'n_inters': 62,
-                       'expected_hr': 0.05, 'step_user': 100, 'batch_user': 16, 'n_training_epochs': 10,
-                       'adv_weight': None, 'diverse_weight': 0.01, 'l2_weight': 0.001,
-                       'look_ahead_lr': 0.1, 'train_fake_prob': None, 'prob': None,
+                       'expected_hr': 0.05, 'step_user': 100, 'n_training_epochs': 10,
+                       'adv_weight': None, 'diverse_weight': None, 'l2_weight': None,
+                       'look_ahead_lr': 0.1, 'prob': 0.9,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
     amazon_attacker_config.append(attacker_config)

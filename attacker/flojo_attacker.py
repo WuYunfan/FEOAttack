@@ -61,9 +61,10 @@ class FLOJOAttacker(BasicAttacker):
             opt = SGD(surrogate_model.parameters(), lr=self.look_ahead_lr)
             with higher.innerloop_ctx(surrogate_model, opt) as (fmodel, diffopt):
                 fmodel.train()
-                scores, _ = fmodel.forward(temp_fake_user_tensor)
-                score_n = scores.mean(dim=1, keepdim=True).detach()
-                unroll_train_loss = F.softplus(score_n - scores[:, self.target_item_tensor])
+                scores, l2_norm = fmodel.forward(temp_fake_user_tensor)
+                score_n = scores.mean(dim=1, keepdim=True)
+                scores, l2_norm = scores[:, self.target_item_tensor], l2_norm[:, self.target_item_tensor]
+                unroll_train_loss = F.softplus(score_n - scores) + surrogate_trainer.l2_reg * l2_norm
                 diffopt.step(unroll_train_loss.sum())
 
                 fmodel.eval()

@@ -13,8 +13,8 @@ import numpy as np
 
 
 def objective(trial):
-    adv_weight = trial.suggest_categorical('adv_weight', [0.01, 0.003, 0.001])
-    diverse_weight = trial.suggest_categorical('diverse_weight', [0.01, 0.003, 0.001])
+    adv_weight = trial.suggest_categorical('adv_weight', [0.003, 0.001, 0.0003])
+    diverse_weight = trial.suggest_categorical('diverse_weight', [0.001, 0.0003, 0.0001])
     l2_weight = trial.suggest_categorical('l2_weight', [0.003, 0.001, 0.0003])
     set_seed(2023)
     device = torch.device('cuda')

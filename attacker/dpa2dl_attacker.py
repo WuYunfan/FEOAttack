@@ -110,7 +110,6 @@ class DPA2DLAttacker(BasicAttacker):
             self.consumed_time += consumed_time
             print('Fake #{:s} has been generated! Time: {:.3f}s'.format(fake_nums_str, consumed_time))
             gc.collect()
-            torch.cuda.empty_cache()
 
         self.dataset.train_data = self.dataset.train_data[:-self.n_fakes]
         self.dataset.val_data = self.dataset.val_data[:-self.n_fakes]

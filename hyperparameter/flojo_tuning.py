@@ -14,8 +14,14 @@ import numpy as np
 
 def objective(trial):
     adv_weight = trial.suggest_categorical('adv_weight', [0.003, 0.001, 0.0003])
+    # [0.03, 0.01, 0.003] for gowalla, [0.1, 0.03, 0.01] for yelp
+    # [0.003, 0.001, 0.0003] for gowalla-lgcn, [0.01, 0.003, 0.001] for yelp-lgcn, [0.01, 0.003, 0.001] for amazon-lgcn
     diverse_weight = trial.suggest_categorical('diverse_weight', [0.001, 0.0003, 0.0001])
+    # [0.003, 0.001, 0.0003] for gowalla, [0.03, 0.01, 0.003] for yelp
+    # [0.003, 0.001, 0.0003] for gowalla-lgcn, [0.0003, 0.0001, 0.00003] for yelp-lgcn, [0.0003, 0.0001, 3.e-5] for amazon-lgcn
     l2_weight = trial.suggest_categorical('l2_weight', [0.003, 0.001, 0.0003])
+    # [0.01, 0.003, 0.001] for gowalla, [0.03, 0.01, 0.003] for yelp
+    # [0.001, 0.0003, 0.0001] for gowalla-lgcn, [0.0003, 0.0001, 0.00003] for yelp-lgcn, [3.e-5, 1.e-5, 0.] for amazon-lgcn
     set_seed(2023)
     device = torch.device('cuda')
     dataset_config, model_config, trainer_config = get_config(device)[0]

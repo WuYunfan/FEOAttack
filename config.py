@@ -221,7 +221,7 @@ def get_yelp_attacker_config():
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
     attacker_config = {'name': 'FLOJOAttacker', 'n_fakes': 355, 'topk': 50, 'n_inters': 36,
                        'expected_hr': 0.05, 'step_user': 20, 'n_training_epochs': 10,
-                       'adv_weight': 0.03, 'diverse_weight': 0.01, 'l2_weight': 0.01,
+                       'adv_weight': 0.03, 'diverse_weight': 0.1, 'l2_weight': 0.1,
                        'look_ahead_lr': 0.1, 'prob': 0.9,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
@@ -233,7 +233,7 @@ def get_yelp_attacker_config():
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
     attacker_config = {'name': 'FLOJOAttacker', 'n_fakes': 355, 'topk': 50, 'n_inters': 36,
                        'expected_hr': 0.05, 'step_user': 20, 'n_training_epochs': 10,
-                       'adv_weight': 0.003, 'diverse_weight': 0.0001, 'l2_weight': 0.0001,
+                       'adv_weight': 0.003, 'diverse_weight': 0., 'l2_weight': 0.,
                        'look_ahead_lr': 0.1, 'prob': 0.9,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
@@ -330,7 +330,7 @@ def get_amazon_attacker_config():
                                 'test_batch_size': 4096, 'topks': [50], 'verbose': False}
     attacker_config = {'name': 'FLOJOAttacker', 'n_fakes': 1348, 'topk': 50, 'n_inters': 62,
                        'expected_hr': 0.05, 'step_user': 100, 'n_training_epochs': 10,
-                       'adv_weight': 0.003, 'diverse_weight': 0.0001, 'l2_weight': 1.e-5,
+                       'adv_weight': 0.01, 'diverse_weight': 0.0003, 'l2_weight': 0.,
                        'look_ahead_lr': 0.1, 'prob': 0.9,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}

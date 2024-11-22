@@ -31,7 +31,7 @@ def objective(trial):
                        'surrogate_trainer_config': surrogate_trainer_config}
 
     dataset = get_dataset(dataset_config)
-    target_items = get_target_items(dataset)
+    target_items = get_target_items(dataset, bottom_ratio=0.01)
     attacker_config['target_items'] = target_items
     attacker = get_attacker(attacker_config, dataset)
     attacker.generate_fake_users(verbose=False)

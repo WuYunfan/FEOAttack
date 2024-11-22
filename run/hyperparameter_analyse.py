@@ -24,7 +24,8 @@ def main():
     hyperparameters = {'adv_weight': [0.1, 0.03, 0.01, 0.003, 0.001, 0.0003, 0.0001, 0.],
                        'diverse_weight': [0.01, 0.003, 0.001, 0.0003, 0.0001, 0.00003, 0.00001, 0.],
                        'l2_weight': [0.01, 0.003, 0.001, 0.0003, 0.0001, 0.00003, 0.00001, 0.],
-                       'expected_hr': [1., 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.1, 0.05, 0.01]}
+                       'expected_hr': [1., 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.1, 0.05, 0.01],
+                       'prob': [0.99, 0.95, 0.9, 0.8, 0.7, 0.6, 0.5, 0.1, 0.]}
     for key in hyperparameters.keys():
         for value in hyperparameters[key]:
             attacker_config = get_attacker_config()[-2]
@@ -44,7 +45,7 @@ def main():
                 recall = attacker.eval(model_config, trainer_config) * 100
                 recalls.append(recall)
                 shutil.rmtree('checkpoints')
-            print('Hyperparameter {:s} with value {:.1f}, mean {:.3f}%, std {:.3f}%'.
+            print('Hyper-parameter {:s} with value {:.6f}, mean {:.3f}%, std {:.3f}%'.
                   format(key, value, np.mean(recalls), np.std(recalls, ddof=1)))
 
 

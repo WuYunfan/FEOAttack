@@ -35,6 +35,9 @@ class FLOJOAttacker(BasicAttacker):
         target_users = TensorDataset(torch.arange(self.n_users, dtype=torch.int64, device=self.device))
         self.target_user_loader = DataLoader(target_users, batch_size=self.surrogate_trainer_config['test_batch_size'],
                                              shuffle=True)
+        self.validate_topk = attacker_config.gete('validate_topk', None)
+        if self.validate_topk is not None:
+            self.recommendation_lists = []
 
     def add_filler_items(self, surrogate_model, temp_fake_user_tensor):
         prob = torch.ones(self.n_items, dtype=torch.float32, device=self.device)
@@ -45,6 +48,8 @@ class FLOJOAttacker(BasicAttacker):
             item_score = scores[u_idx, :] * prob
             filler_items = item_score.topk(self.n_inters - self.target_items.shape[0]).indices
             prob[filler_items] *= self.prob
+            if self.validate_topk is not None:
+                self.recommendation_lists.append(set(item_score.topk(self.validate_topk).indices.cpu().numpy().tolist()))
 
             filler_items = filler_items.cpu().numpy().tolist()
             self.fake_user_inters[f_u - self.n_users] = filler_items + self.target_items.tolist()

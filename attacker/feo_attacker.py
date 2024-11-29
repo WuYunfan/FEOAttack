@@ -16,9 +16,9 @@ from torch.optim import SGD, Adam
 import higher
 
 
-class FLOJOAttacker(BasicAttacker):
+class FEOAttacker(BasicAttacker):
     def __init__(self, attacker_config):
-        super(FLOJOAttacker, self).__init__(attacker_config)
+        super(FEOAttacker, self).__init__(attacker_config)
         self.surrogate_model_config = attacker_config['surrogate_model_config']
         self.surrogate_trainer_config = attacker_config['surrogate_trainer_config']
 

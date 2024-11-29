@@ -104,7 +104,7 @@ def get_gowalla_attacker_config():
     surrogate_trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': 0.01, 'l2_reg': 0.001,
                                 'n_epochs': 0, 'batch_size': 2 ** 14, 'dataloader_num_workers': 6,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
-    attacker_config = {'name': 'FLOJOAttacker', 'n_fakes': 131, 'topk': 50, 'n_inters': 41,
+    attacker_config = {'name': 'FEOAttacker', 'n_fakes': 131, 'topk': 50, 'n_inters': 41,
                        'step_user': 10, 'n_training_epochs': 10,
                        'adv_weight': 0.01, 'diverse_weight': 0.001, 'l2_weight': 0.003,
                        'look_ahead_lr': 0.1, 'prob': 0.9,
@@ -116,7 +116,7 @@ def get_gowalla_attacker_config():
     surrogate_trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': 0.01, 'l2_reg': 1.e-5,
                                 'n_epochs': 0, 'batch_size': 2 ** 14, 'dataloader_num_workers': 6,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
-    attacker_config = {'name': 'FLOJOAttacker', 'n_fakes': 131, 'topk': 50, 'n_inters': 41,
+    attacker_config = {'name': 'FEOAttacker', 'n_fakes': 131, 'topk': 50, 'n_inters': 41,
                        'step_user': 10, 'n_training_epochs': 10,
                        'adv_weight': 0.001, 'diverse_weight': 0.001, 'l2_weight': 0.0001,
                        'look_ahead_lr': 0.1, 'prob': 0.9,
@@ -219,7 +219,7 @@ def get_yelp_attacker_config():
     surrogate_trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': 0.01, 'l2_reg': 0.001,
                                 'n_epochs': 0, 'batch_size': 2 ** 14, 'dataloader_num_workers': 6,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
-    attacker_config = {'name': 'FLOJOAttacker', 'n_fakes': 355, 'topk': 50, 'n_inters': 36,
+    attacker_config = {'name': 'FEOAttacker', 'n_fakes': 355, 'topk': 50, 'n_inters': 36,
                        'step_user': 20, 'n_training_epochs': 10,
                        'adv_weight': 0.03, 'diverse_weight': 0.1, 'l2_weight': 0.1,
                        'look_ahead_lr': 0.1, 'prob': 0.9,
@@ -231,7 +231,7 @@ def get_yelp_attacker_config():
     surrogate_trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': 0.01, 'l2_reg': 1.e-5,
                                 'n_epochs': 0, 'batch_size': 2 ** 14, 'dataloader_num_workers': 6,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
-    attacker_config = {'name': 'FLOJOAttacker', 'n_fakes': 355, 'topk': 50, 'n_inters': 36,
+    attacker_config = {'name': 'FEOAttacker', 'n_fakes': 355, 'topk': 50, 'n_inters': 36,
                        'step_user': 20, 'n_training_epochs': 10,
                        'adv_weight': 0.003, 'diverse_weight': 0., 'l2_weight': 0.,
                        'look_ahead_lr': 0.1, 'prob': 0.9,
@@ -316,7 +316,7 @@ def get_amazon_attacker_config():
     surrogate_trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': 0.01, 'l2_reg': 0.001,
                                 'n_epochs': 0, 'batch_size': 2 ** 15, 'dataloader_num_workers': 10,
                                 'test_batch_size': 4096, 'topks': [50], 'verbose': False}
-    attacker_config = {'name': 'FLOJOAttacker', 'n_fakes': 1348, 'topk': 50, 'n_inters': 62,
+    attacker_config = {'name': 'FEOAttacker', 'n_fakes': 1348, 'topk': 50, 'n_inters': 62,
                        'step_user': 100, 'n_training_epochs': 10,
                        'adv_weight': 0.001, 'diverse_weight': 0.0003, 'l2_weight': 0.001,
                        'look_ahead_lr': 0.1, 'prob': 0.9,
@@ -328,7 +328,7 @@ def get_amazon_attacker_config():
     surrogate_trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': 0.01, 'l2_reg': 0.,
                                 'n_epochs': 0, 'batch_size': 2 ** 15, 'dataloader_num_workers': 10,
                                 'test_batch_size': 4096, 'topks': [50], 'verbose': False}
-    attacker_config = {'name': 'FLOJOAttacker', 'n_fakes': 1348, 'topk': 50, 'n_inters': 62,
+    attacker_config = {'name': 'FEOAttacker', 'n_fakes': 1348, 'topk': 50, 'n_inters': 62,
                        'step_user': 100, 'n_training_epochs': 10,
                        'adv_weight': 0.01, 'diverse_weight': 0.0003, 'l2_weight': 0.,
                        'look_ahead_lr': 0.1, 'prob': 0.9,

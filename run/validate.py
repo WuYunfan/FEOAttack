@@ -1,7 +1,5 @@
 import os.path
 import torch
-from IPython.testing.tools import fake_input
-
 from dataset import get_dataset
 from attacker import get_attacker
 from tensorboardX import SummaryWriter
@@ -44,16 +42,15 @@ def main():
         _, model_config, trainer_config = get_config(device)[0]
         attacker.eval(model_config, trainer_config)
 
-        sims = []
+        commons = []
         fake_users = np.arange(attacker.n_users, attacker.n_users + attacker.n_fakes)
         with torch.no_grad():
             scores = attacker.model.predict(fake_users)
             for u_idx in range(attacker.n_fakes):
                 a = set(scores[u_idx].topk(100).indices.cpu().numpy().tolist())
-                b = attacker.recommendation_list[u_idx]
-                jaccard_sim =  len(a & b) / len(a | b)
-                sims.append(jaccard_sim)
-        print('Jaccard similarity between top-100 predicted items: {:.6f}'.format(np.mean(sims)))
+                b = attacker.recommendation_lists[u_idx]
+                commons.append(len(a & b) )
+        print('Common items between top-100 predicted items: {:.6f}'.format(np.mean(commons)))
         shutil.rmtree('checkpoints')
 
 

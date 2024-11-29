@@ -7,7 +7,7 @@ from attacker.basic_attacker import BasicAttacker
 import numpy as np
 from model import get_model
 from trainer import get_trainer
-from utils import AverageMeter, vprint, get_target_hr, goal_oriented_loss
+from utils import AverageMeter, vprint, get_target_hr, feo_adv_loss
 import torch.nn.functional as F
 import time
 import os
@@ -22,7 +22,6 @@ class FLOJOAttacker(BasicAttacker):
         self.surrogate_model_config = attacker_config['surrogate_model_config']
         self.surrogate_trainer_config = attacker_config['surrogate_trainer_config']
 
-        self.expected_hr = attacker_config['expected_hr']
         self.step_user = attacker_config['step_user']
         self.n_training_epochs = attacker_config['n_training_epochs']
         self.adv_weight = attacker_config['adv_weight']
@@ -35,7 +34,7 @@ class FLOJOAttacker(BasicAttacker):
         target_users = TensorDataset(torch.arange(self.n_users, dtype=torch.int64, device=self.device))
         self.target_user_loader = DataLoader(target_users, batch_size=self.surrogate_trainer_config['test_batch_size'],
                                              shuffle=True)
-        self.validate_topk = attacker_config.gete('validate_topk', None)
+        self.validate_topk = attacker_config.get('validate_topk', None)
         if self.validate_topk is not None:
             self.recommendation_lists = []
 
@@ -76,7 +75,7 @@ class FLOJOAttacker(BasicAttacker):
                 scores = fmodel.predict(target_user)
                 target_scores = scores[:, self.target_item_tensor]
                 top_scores = scores.topk(self.topk, dim=1).values[:, -1:]
-                adv_loss = goal_oriented_loss(target_scores, top_scores, self.expected_hr)
+                adv_loss = feo_adv_loss(target_scores, top_scores)
                 surrogate_embedding = fmodel.init_fast_params[0]
                 fake_user_embedding = surrogate_embedding[temp_fake_user_tensor]
                 sim = F.softplus(torch.mm(fake_user_embedding, fake_user_embedding.t()).fill_diagonal_(-np.inf)).mean()

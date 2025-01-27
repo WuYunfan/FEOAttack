@@ -14,6 +14,8 @@ target_items_lists = [[13163, 9306, 11375, 4780, 9990], [275, 7673, 7741, 10376,
 target_items_lists = [[13971, 24204, 10290, 24038, 9836], [19230, 5616, 557, 19986, 17702],
                       [21356, 5766, 2076, 4267, 18261], [8893, 20936, 19034, 16248, 178],
                       [21077, 10796, 4749, 19918, 5106]]  
+
+target_items_lists = [[39810, 127955, 192022, 34919, 192829]]
 '''
 target_items_lists = np.array(target_items_lists)
 
@@ -26,10 +28,10 @@ def main():
     device = torch.device('cuda')
     dataset_config = get_config(device)[0][0]
 
-    hyperparameters = {'adv_weight': [1., 0.3, 0.1, 0.03, 0.01, 0.003, 0.001, 0.0003, 0.0001, 0.],
-                       'diverse_weight': [1., 0.3, 0.1, 0.03, 0.01, 0.003, 0.001, 0.0003, 0.0001, 0.],
-                       'l2_weight': [1, 0.3, 0.1, 0.03, 0.01, 0.003, 0.001, 0.0003, 0.0001, 0.],
-                       'prob': [1., 0.99, 0.95, 0.9, 0.8, 0.7, 0.6, 0.5, 0.]}
+    hyperparameters = {'adv_weight': [0.3, 0.1, 0.03, 0.01, 0.003, 0.001, 0.],
+                       'l2_weight': [1, 0.1, 0.01, 0.001, 0.0001, 0.],
+                       'prob': [1., 0.99, 0.95, 0.9, 0.8, 0.],
+                       'step_user': [5, 10, 20, 100]}
     for key in hyperparameters.keys():
         for value in hyperparameters[key]:
             attacker_config = get_attacker_config()[-2]

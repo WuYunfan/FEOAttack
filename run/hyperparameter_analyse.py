@@ -26,9 +26,9 @@ def main():
     device = torch.device('cuda')
     dataset_config = get_config(device)[0][0]
 
-    hyperparameters = {'adv_weight': [0.1, 0.03, 0.01, 0.003, 0.001, 0.0003, 0.0001, 0.],
-                       'diverse_weight': [0.1, 0.03, 0.01, 0.003, 0.001, 0.0003, 0.0001, 0.],
-                       'l2_weight': [0.1, 0.03, 0.01, 0.003, 0.001, 0.0003, 0.0001, 0.],
+    hyperparameters = {'adv_weight': [1., 0.3, 0.1, 0.03, 0.01, 0.003, 0.001, 0.0003, 0.0001, 0.],
+                       'diverse_weight': [1., 0.3, 0.1, 0.03, 0.01, 0.003, 0.001, 0.0003, 0.0001, 0.],
+                       'l2_weight': [1, 0.3, 0.1, 0.03, 0.01, 0.003, 0.001, 0.0003, 0.0001, 0.],
                        'prob': [1., 0.99, 0.95, 0.9, 0.8, 0.7, 0.6, 0.5, 0.]}
     for key in hyperparameters.keys():
         for value in hyperparameters[key]:

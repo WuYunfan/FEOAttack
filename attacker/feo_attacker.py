@@ -25,6 +25,7 @@ class FEOAttacker(BasicAttacker):
         self.step_user = attacker_config['step_user']
         self.n_training_epochs = attacker_config['n_training_epochs']
         self.adv_weight = attacker_config['adv_weight']
+        self.diverse_weight = attacker_config['diverse_weight']
         self.l2_weight = attacker_config['l2_weight']
         self.look_ahead_lr = attacker_config['look_ahead_lr']
         self.prob = attacker_config['prob']
@@ -57,6 +58,7 @@ class FEOAttacker(BasicAttacker):
     def train_fake(self, surrogate_model, surrogate_trainer, temp_fake_user_tensor):
         unroll_train_losses = AverageMeter()
         adv_losses = AverageMeter()
+        diverse_losses = AverageMeter()
         l2_losses = AverageMeter()
         for target_user in self.target_user_loader:
             target_user = target_user[0]
@@ -78,7 +80,9 @@ class FEOAttacker(BasicAttacker):
                 fake_user_embedding = surrogate_embedding[temp_fake_user_tensor]
                 sim = F.softplus(torch.mm(fake_user_embedding, fake_user_embedding.t()).fill_diagonal_(-np.inf)).mean()
                 l2 = (torch.norm(fake_user_embedding, dim=1, p=2) ** 2).mean()
-                total_fake_loss = self.adv_weight * adv_loss + self.l2_weight * l2
+                total_fake_loss = self.adv_weight * adv_loss
+                total_fake_loss += self.diverse_weight * sim
+                total_fake_loss += self.l2_weight * l2
                 adv_grads = torch.autograd.grad(total_fake_loss, surrogate_embedding)[0]
 
                 surrogate_trainer.opt.zero_grad()
@@ -87,8 +91,9 @@ class FEOAttacker(BasicAttacker):
                 surrogate_trainer.opt.step()
             unroll_train_losses.update(unroll_train_loss.mean().item())
             adv_losses.update(adv_loss.item(), target_user.shape[0])
+            diverse_losses.update(sim.item())
             l2_losses.update(l2.item())
-        return unroll_train_losses.avg, adv_losses.avg, l2_losses.avg
+        return unroll_train_losses.avg, adv_losses.avg, diverse_losses.avg, l2_losses.avg
 
     def retrain_surrogate(self, temp_fake_user_tensor, fake_nums_str, verbose, writer):
         surrogate_model = get_model(self.surrogate_model_config, self.dataset)
@@ -98,15 +103,15 @@ class FEOAttacker(BasicAttacker):
 
             surrogate_model.train()
             t_loss = surrogate_trainer.train_one_epoch(None)
-            unroll_train_loss, adv_loss, l2_loss = \
+            unroll_train_loss, adv_loss, diverse_loss, l2_loss = \
                 self.train_fake(surrogate_model, surrogate_trainer, temp_fake_user_tensor)
 
             target_hr = get_target_hr(surrogate_model, self.target_user_loader, self.target_item_tensor, self.topk)
             consumed_time = time.time() - start_time
             vprint('Training Epoch {:d}/{:d}, Time: {:.3f}s, Train Loss: {:.6f}, Unroll Train Loss: {:.6f}, '
-                   'Adv Loss: {:.6f}, L2 Loss: {:.6f}, Target Hit Ratio {:.6f}%'.
+                   'Adv Loss: {:.6f}, Diverse Loss: {:.6f}, L2 Loss: {:.6f}, Target Hit Ratio {:.6f}%'.
                    format(training_epoch, self.n_training_epochs, consumed_time, t_loss, unroll_train_loss,
-                          adv_loss, l2_loss, target_hr * 100.), verbose)
+                          adv_loss, diverse_loss, l2_loss, target_hr * 100.), verbose)
             writer_tag = '{:s}_{:s}'.format(self.name, fake_nums_str)
             if writer:
                 writer.add_scalar(writer_tag + '/Hit_Ratio@' + str(self.topk), target_hr, training_epoch)
@@ -139,4 +144,3 @@ class FEOAttacker(BasicAttacker):
         self.dataset.val_data = self.dataset.val_data[:-self.n_fakes]
         self.dataset.train_array = self.dataset.train_array[:-self.n_fakes * self.n_inters]
         self.dataset.n_users -= self.n_fakes
-

@@ -6,7 +6,7 @@ from torch.optim import Adam, SGD
 import time
 import numpy as np
 import os
-from utils import AverageMeter, generate_adj_mat, vprint, goal_oriented_loss
+from utils import AverageMeter, generate_adj_mat, vprint
 import torch.nn.functional as F
 import scipy.sparse as sp
 import optuna

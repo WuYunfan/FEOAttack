@@ -32,7 +32,8 @@ def main():
                        'diverse_weight': [1., 0.1, 0.01, 0.001, 0.0001, 0.],
                        'l2_weight': [1., 0.1, 0.01, 0.001, 0.0001, 0.],
                        'prob': [1., 0.99, 0.95, 0.9, 0.8, 0.],
-                       'step_user': [5, 10, 20, 100]}
+                       'step_user': [5, 10, 20, 100],
+                       'expected_hr': [0.01, 0.05, 0.1, 0.2, 0.5, 1.]}
     for key in hyperparameters.keys():
         for value in hyperparameters[key]:
             attacker_config = get_attacker_config()[-2]

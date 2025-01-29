@@ -82,8 +82,8 @@ class FEOAttacker(BasicAttacker):
                 sim = F.softplus(torch.mm(fake_user_embedding, fake_user_embedding.t()).fill_diagonal_(-np.inf)).mean()
                 l2 = (torch.norm(fake_user_embedding, dim=1, p=2) ** 2).mean()
                 total_fake_loss = self.adv_weight * adv_loss
-                total_fake_loss += self.diverse_weight * sim
-                total_fake_loss += self.l2_weight * l2
+                total_fake_loss = total_fake_loss + self.diverse_weight * sim
+                total_fake_loss = total_fake_loss + self.l2_weight * l2
                 adv_grads = torch.autograd.grad(total_fake_loss, surrogate_embedding)[0]
 
                 surrogate_trainer.opt.zero_grad()

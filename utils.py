@@ -150,6 +150,9 @@ def get_target_hr(surrogate_model, target_user_loader, target_item_tensor, topk)
     return hrs.avg
 
 
-def feo_adv_loss(target_scores, top_scores):
-    loss = F.softplus(top_scores.detach() - target_scores)
-    return loss.mean()
+def goal_oriented_loss(target_scores, top_scores, expected_hr):
+    loss = -F.softplus(top_scores.detach() - target_scores)
+    n_target_hits = int(expected_hr * loss.shape[0] * loss.shape[1])
+    bottom_loss = loss.reshape(-1).topk(n_target_hits).values
+    bottom_loss = -bottom_loss
+    return bottom_loss.mean()

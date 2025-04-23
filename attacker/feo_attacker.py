@@ -106,7 +106,7 @@ class FEOAttacker(BasicAttacker):
 
         surrogate_trainer.opt.zero_grad()
         surrogate_model.embedding.weight.grad = torch.zeros_like(surrogate_model.embedding.weight)
-        surrogate_model.embedding.weight.grad[temp_fake_user_tensor] = c_adv_grads
+        surrogate_model.embedding.weight.grad[temp_fake_user_tensor] = c_adv_grads / n_batches
         surrogate_trainer.opt.step()
         return unroll_train_losses.avg, adv_losses.avg, kl_losses.avg
 

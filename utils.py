@@ -156,3 +156,18 @@ def goal_oriented_loss(target_scores, top_scores, expected_hr):
     bottom_loss = loss.reshape(-1).topk(n_target_hits).values
     bottom_loss = -bottom_loss
     return bottom_loss.mean()
+
+
+def kernel_matrix(A, B, h=2):
+    D = torch.cdist(A, B, p=2)
+    K = torch.exp(- (D * D) / (2 * h * h))
+    return K
+
+def kl_estimate(X, Y, k=10):
+    normed_X, normed_Y = F.normalize(X, dim=1, p=2), F.normalize(Y, dim=1, p=2)
+    K_XX = kernel_matrix(normed_X, normed_X)
+    p_hat = K_XX.mean(dim=1)
+    K_XY = kernel_matrix(normed_X, normed_Y)
+    q_hat = K_XY.topk(k, dim=1).values.mean(dim=1)
+    kl = (torch.log(p_hat) -torch.log(q_hat)).mean()
+    return kl

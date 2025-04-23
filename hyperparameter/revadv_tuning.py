@@ -24,7 +24,7 @@ def objective(trial):
     surrogate_trainer_config = {'name': 'UserBatchTrainer', 'optimizer': 'Adam', 'lr': s_lr, 'l2_reg': s_l2,
                                 'n_epochs': 45, 'batch_size': 2048, 'loss_function': 'mse_loss', 'weight': 20.,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
-    attacker_config = {'name': 'RevAdvAttacker', 'lr': lr, 'momentum': 1. - m_momentum,
+    attacker_config = {'name': 'RevAdvAttacker', 'lr': lr, 'momentum': 1. - m_momentum, 'save_memory_mode': False,
                        'n_fakes': 131, 'unroll_steps': 5, 'n_inters': 41, 'topk': 50, 'adv_epochs': 30,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}

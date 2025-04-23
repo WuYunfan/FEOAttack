@@ -7,28 +7,13 @@ from attacker.basic_attacker import BasicAttacker
 import numpy as np
 from model import get_model
 from trainer import get_trainer
-from utils import AverageMeter, vprint, get_target_hr, goal_oriented_loss
+from utils import AverageMeter, vprint, get_target_hr, goal_oriented_loss, kl_estimate
 import torch.nn.functional as F
 import time
 import os
 import scipy.sparse as sp
 from torch.optim import SGD, Adam
 import higher
-
-
-def kernel_matrix(A, B, h=2):
-    D = torch.cdist(A, B, p=2)
-    K = torch.exp(- (D * D) / (2 * h * h))
-    return K
-
-def kl_estimate(X, Y, k=10):
-    normed_X, normed_Y = F.normalize(X, dim=1, p=2), F.normalize(Y, dim=1, p=2)
-    K_XX = kernel_matrix(normed_X, normed_X)
-    p_hat = K_XX.mean(dim=1)
-    K_XY = kernel_matrix(normed_X, normed_Y)
-    q_hat = K_XY.topk(k, dim=1).values.mean(dim=1)
-    kl = (torch.log(p_hat) -torch.log(q_hat)).mean()
-    return kl
 
 
 class FEOAttacker(BasicAttacker):

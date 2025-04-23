@@ -13,15 +13,8 @@ import numpy as np
 
 
 def objective(trial):
-    adv_weight = trial.suggest_categorical('adv_weight', [0.003, 0.001, 0.0003])
-    # [0.03, 0.01, 0.003] for gowalla, [0.1, 0.03, 0.01] for yelp
-    # [0.003, 0.001, 0.0003] for gowalla-lgcn, [0.01, 0.003, 0.001] for yelp-lgcn, [0.03, 0.01, 0.003] for amazon-lgcn
-    diverse_weight = trial.suggest_categorical('diverse_weight', [0.001, 0.0003, 0.0001])
-    # [0.003, 0.001, 0.0003] for gowalla, [0.1, 0.03, 0.01] for yelp
-    # [0.003, 0.001, 0.0003] for gowalla-lgcn, [3.e-5, 1.e-5, 0.] for yelp-lgcn, [0.01, 0.0003, 0.0001] for amazon-lgcn
-    l2_weight = trial.suggest_categorical('l2_weight', [0.003, 0.001, 0.0003])
-    # [0.01, 0.003, 0.001] for gowalla, [0.3, 0.1, 0.03] for yelp
-    # [0.001, 0.0003, 0.0001] for gowalla-lgcn, [3.e-5, 1.e-5, 0.] for yelp-lgcn, [3.e-5, 1.e-5, 0.] for amazon-lgcn
+    adv_weight = trial.suggest_categorical('adv_weight', [0.3, 0.1, 0.01])
+    kl_weight = trial.suggest_categorical('diverse_weight', [0.01, 0.001, 0.0001])
     set_seed(2023)
     device = torch.device('cuda')
     dataset_config, model_config, trainer_config = get_config(device)[0]
@@ -31,8 +24,8 @@ def objective(trial):
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
     attacker_config = {'name': 'FEOAttacker', 'n_fakes': 131, 'topk': 50, 'n_inters': 41,
                        'step_user': 10, 'n_training_epochs': 10, 'expected_hr': 0.05,
-                       'adv_weight': adv_weight, 'diverse_weight': diverse_weight, 'l2_weight': l2_weight,
-                       'look_ahead_lr': 0.1, 'prob': 0.9,
+                       'adv_weight': adv_weight, 'kl_weight': kl_weight,
+                       'look_ahead_lr': 0.1, 'filler_limit': 2,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
 

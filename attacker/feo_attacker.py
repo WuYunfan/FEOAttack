@@ -16,6 +16,21 @@ from torch.optim import SGD, Adam
 import higher
 
 
+def kernel_matrix(A, B, h=2):
+    D = torch.cdist(A, B, p=2)
+    K = torch.exp(- (D * D) / (2 * h * h))
+    return K
+
+def kl_estimate(X, Y, k=10):
+    normed_X, normed_Y = F.normalize(X, dim=1, p=2), F.normalize(Y, dim=1, p=2)
+    K_XX = kernel_matrix(normed_X, normed_X)
+    p_hat = K_XX.mean(dim=1)
+    K_XY = kernel_matrix(normed_X, normed_Y)
+    q_hat = K_XY.topk(k, dim=1).values.mean(dim=1)
+    kl = (torch.log(p_hat) -torch.log(q_hat)).mean()
+    return kl
+
+
 class FEOAttacker(BasicAttacker):
     def __init__(self, attacker_config):
         super(FEOAttacker, self).__init__(attacker_config)
@@ -26,10 +41,9 @@ class FEOAttacker(BasicAttacker):
         self.step_user = attacker_config['step_user']
         self.n_training_epochs = attacker_config['n_training_epochs']
         self.adv_weight = attacker_config['adv_weight']
-        self.diverse_weight = attacker_config['diverse_weight']
-        self.l2_weight = attacker_config['l2_weight']
+        self.kl_weight = attacker_config['kl_weight']
         self.look_ahead_lr = attacker_config['look_ahead_lr']
-        self.prob = attacker_config['prob']
+        self.filler_limit = attacker_config['filler_limit']
 
         self.target_item_tensor = torch.tensor(self.target_items, dtype=torch.int64, device=self.device)
         target_users = TensorDataset(torch.arange(self.n_users, dtype=torch.int64, device=self.device))
@@ -40,14 +54,14 @@ class FEOAttacker(BasicAttacker):
             self.recommendation_lists = []
 
     def add_filler_items(self, surrogate_model, temp_fake_user_tensor):
-        prob = torch.ones(self.n_items, dtype=torch.float32, device=self.device)
-        prob[self.target_item_tensor] = 0.
+        counts = torch.zeros([self.n_items], dtype=torch.int, device=self.device)
         with torch.no_grad():
-            scores = torch.sigmoid(surrogate_model.predict(temp_fake_user_tensor))
+            scores = surrogate_model.predict(temp_fake_user_tensor)
         for u_idx, f_u in enumerate(temp_fake_user_tensor):
-            item_score = scores[u_idx, :] * prob
+            item_score = scores[u_idx, :]
+            item_score[counts >= self.filler_limit] = 0.
             filler_items = item_score.topk(self.n_inters - self.target_items.shape[0]).indices
-            prob[filler_items] *= self.prob
+            counts[filler_items] = counts[filler_items] + 1
             if self.validate_topk is not None:
                 self.recommendation_lists.append(set(item_score.topk(self.validate_topk).indices.cpu().numpy().tolist()))
 
@@ -59,8 +73,8 @@ class FEOAttacker(BasicAttacker):
     def train_fake(self, surrogate_model, surrogate_trainer, temp_fake_user_tensor):
         unroll_train_losses = AverageMeter()
         adv_losses = AverageMeter()
-        diverse_losses = AverageMeter()
-        l2_losses = AverageMeter()
+        kl_losses = AverageMeter()
+        c_adv_grads, n_batches = torch.zeros_like(surrogate_model.embedding.weight[temp_fake_user_tensor]), 0
         for target_user in self.target_user_loader:
             target_user = target_user[0]
             opt = SGD(surrogate_model.parameters(), lr=self.look_ahead_lr)
@@ -79,22 +93,22 @@ class FEOAttacker(BasicAttacker):
                 adv_loss =  goal_oriented_loss(target_scores, top_scores, self.expected_hr)
                 surrogate_embedding = fmodel.init_fast_params[0]
                 fake_user_embedding = surrogate_embedding[temp_fake_user_tensor]
-                sim = F.softplus(torch.mm(fake_user_embedding, fake_user_embedding.t()).fill_diagonal_(-np.inf)).mean()
-                l2 = (torch.norm(fake_user_embedding, dim=1, p=2) ** 2).mean()
+                real_user_embedding = surrogate_embedding[:self.n_users]
+                kl = kl_estimate(fake_user_embedding, real_user_embedding)
                 total_fake_loss = self.adv_weight * adv_loss
-                total_fake_loss = total_fake_loss + self.diverse_weight * sim
-                total_fake_loss = total_fake_loss + self.l2_weight * l2
-                adv_grads = torch.autograd.grad(total_fake_loss, surrogate_embedding)[0]
+                total_fake_loss = total_fake_loss + self.kl_weight * kl
+                adv_grads = torch.autograd.grad(total_fake_loss, surrogate_embedding)[0][temp_fake_user_tensor]
+                c_adv_grads, n_batches = c_adv_grads + adv_grads, n_batches + 1
 
-                surrogate_trainer.opt.zero_grad()
-                surrogate_model.embedding.weight.grad = torch.zeros_like(adv_grads)
-                surrogate_model.embedding.weight.grad[temp_fake_user_tensor] = adv_grads[temp_fake_user_tensor]
-                surrogate_trainer.opt.step()
             unroll_train_losses.update(unroll_train_loss.mean().item())
             adv_losses.update(adv_loss.item(), target_user.shape[0])
-            diverse_losses.update(sim.item())
-            l2_losses.update(l2.item())
-        return unroll_train_losses.avg, adv_losses.avg, diverse_losses.avg, l2_losses.avg
+            kl_losses.update(kl.item())
+
+        surrogate_trainer.opt.zero_grad()
+        surrogate_model.embedding.weight.grad = torch.zeros_like(surrogate_model.embedding.weight)
+        surrogate_model.embedding.weight.grad[temp_fake_user_tensor] = c_adv_grads
+        surrogate_trainer.opt.step()
+        return unroll_train_losses.avg, adv_losses.avg, kl_losses.avg
 
     def retrain_surrogate(self, temp_fake_user_tensor, fake_nums_str, verbose, writer):
         surrogate_model = get_model(self.surrogate_model_config, self.dataset)
@@ -104,15 +118,15 @@ class FEOAttacker(BasicAttacker):
 
             surrogate_model.train()
             t_loss = surrogate_trainer.train_one_epoch(None)
-            unroll_train_loss, adv_loss, diverse_loss, l2_loss = \
+            unroll_train_loss, adv_loss, kl_loss = \
                 self.train_fake(surrogate_model, surrogate_trainer, temp_fake_user_tensor)
 
             target_hr = get_target_hr(surrogate_model, self.target_user_loader, self.target_item_tensor, self.topk)
             consumed_time = time.time() - start_time
             vprint('Training Epoch {:d}/{:d}, Time: {:.3f}s, Train Loss: {:.6f}, Unroll Train Loss: {:.6f}, '
-                   'Adv Loss: {:.6f}, Diverse Loss: {:.6f}, L2 Loss: {:.6f}, Target Hit Ratio {:.6f}%'.
+                   'Adv Loss: {:.6f}, KL Loss: {:.6f}, Target Hit Ratio {:.6f}%'.
                    format(training_epoch, self.n_training_epochs, consumed_time, t_loss, unroll_train_loss,
-                          adv_loss, diverse_loss, l2_loss, target_hr * 100.), verbose)
+                          adv_loss, kl_loss, target_hr * 100.), verbose)
             writer_tag = '{:s}_{:s}'.format(self.name, fake_nums_str)
             if writer:
                 writer.add_scalar(writer_tag + '/Hit_Ratio@' + str(self.topk), target_hr, training_epoch)

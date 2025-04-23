@@ -80,6 +80,7 @@ class RevAdvAttacker(GradientAttacker):
     def __init__(self, attacker_config):
         super(RevAdvAttacker, self).__init__(attacker_config)
         self.unroll_steps = attacker_config['unroll_steps']
+        self.save_memory_mode = attacker_config['save_memory_mode']
 
     def retrain_surrogate(self):
         self.surrogate_model.initial_embeddings()
@@ -94,11 +95,15 @@ class RevAdvAttacker(GradientAttacker):
             for _ in range(self.unroll_steps):
                 for users in self.surrogate_trainer.train_user_loader:
                     users = users[0]
+                    if self.save_memory_mode:
+                        users = torch.arange(self.n_users, self.n_users + self.n_fakes, dtype=torch.int64, device=self.device)
                     scores, l2_norm_sq = fmodel.forward(users)
                     profiles = self.surrogate_trainer.merged_data_tensor[users, :]
                     rec_loss = self.surrogate_trainer.loss(profiles, scores, self.surrogate_trainer.weight)
                     loss = rec_loss + self.surrogate_trainer.l2_reg * l2_norm_sq.mean()
                     diffopt.step(loss)
+                    if self.save_memory_mode:
+                        break
 
             fmodel.eval()
             scores = fmodel.predict(self.target_user_tensor)

@@ -4,7 +4,6 @@ import torch
 from config import get_gowalla_config
 import numpy as np
 import matplotlib.pyplot as plt
-import dgl
 import scipy.sparse as sp
 from matplotlib.backends.backend_pdf import PdfPages
 import pandas as pd
@@ -25,173 +24,270 @@ def darken_color(color, amount=0.5):
 
 def main():
     pdf = PdfPages('hyper-gowalla.pdf')
-    base_mean = [0.423]
-    mean = np.array([0.892, 1.057, 0.852, 0.664, 0.629, 0.53, 0.527, 0.544])[::-1].copy()
-    value = np.array([0.1, 0.03, 0.01, 0.003, 0.001, 0.0003, 0.0001, 0])[::-1].copy()
-    fig, (ax1, ax2, ax3, ax4) = plt.subplots(nrows=1, ncols=4, constrained_layout=True, figsize=(30, 5))
-    ax1.plot(np.arange(len(value)), mean, 'x-', markersize=7, color='#7570A0', linewidth=2,
-             markeredgecolor=darken_color('#7570A0', 0.2), label='FEO')
-    ax1.plot(np.arange(len(value)), base_mean * len(value), markersize=7, color='#F7B76D', linewidth=2,
-             markeredgecolor=darken_color('#F7B76D', 0.2), label='None')
-    ax1.set_title('Analysis of hyper-parameter $w_p$', fontsize=19)
-    ax1.set_xticks(np.arange(len(value)))
-    ax1.set_xticklabels(value, fontsize=21)
-    # ax1.yaxis.set_major_locator(MultipleLocator(0.1))
-    ax1.tick_params(axis='y', labelsize=21)
-    ax1.set_xlabel('Promotion loss weight $w_p$', fontsize=21)
-    ax1.set_ylabel('Recall@50 (%)', fontsize=21)
-    ax1.grid(True, which='major', linestyle='--', linewidth=0.8)
-    ax1.minorticks_on()
-    ax1.tick_params(which='major', direction='in')
-    ax1.xaxis.set_ticks_position('both')
-    ax1.yaxis.set_ticks_position('both')
-    ax1.legend(fontsize=21, loc='lower right', bbox_to_anchor=(1., 0.1))
+    base_mean = [0.787]
+    mean = np.array([0.544, 0.527, 0.629, 0.854, 0.892, 0.443])
+    value = np.array([0, 0.0001, 0.001, 0.01, 0.1, 1])
+    fig, ((ax11, ax12, ax13), (ax21, ax22, ax23)) = (
+        plt.subplots(nrows=2, ncols=3, constrained_layout=True, figsize=(20, 8)))
+    ax11.plot(np.arange(len(value)), mean, 'x-', markersize=7, color='#7570A0', linewidth=2,
+              markeredgecolor=darken_color('#7570A0', 0.2), label='FEO')
+    ax11.plot(np.arange(len(value)), base_mean * len(value), markersize=7, color='#F7B76D', linewidth=2,
+              markeredgecolor=darken_color('#F7B76D', 0.2), label='Best Baseline')
+    ax11.set_xticks(np.arange(len(value)))
+    ax11.set_xticklabels(value, fontsize=21)
+    ax11.set_ylim(0.2, 1.2)
+    ax11.yaxis.set_major_locator(MultipleLocator(0.2))
+    ax11.tick_params(axis='y', labelsize=21)
+    ax11.set_xlabel('Promotion loss weight $w_p$', fontsize=21)
+    ax11.set_ylabel('Recall@50 (%)', fontsize=21)
+    ax11.grid(True, which='major', linestyle='--', linewidth=0.5, color='black', dashes=(20, 10))
+    ax11.minorticks_on()
+    ax11.tick_params(which='major', direction='in')
+    ax11.xaxis.set_ticks_position('both')
+    ax11.yaxis.set_ticks_position('both')
 
-    mean = np.array([0.881, 0.866, 0.917, 0.852, 0.939, 0.932, 0.92, 0.696])[::-1].copy()
-    value = np.array([0.1, 0.03, 0.01, 0.003, 0.001, 0.0003, 0.0001, 0])[::-1].copy()
-    ax2.plot(np.arange(len(value)), mean, 'x-', markersize=7, color='#7570A0', linewidth=2,
-             markeredgecolor=darken_color('#7570A0', 0.2), label='FEO')
-    ax2.plot(np.arange(len(value)), base_mean * len(value), markersize=7, color='#F7B76D', linewidth=2,
-             markeredgecolor=darken_color('#F7B76D', 0.2), label='None')
-    ax2.set_title('Analysis of hyper-parameter $w_m$', fontsize=19)
-    ax2.set_xticks(np.arange(len(value)))
-    ax2.set_xticklabels(value, fontsize=21)
-    # ax2.yaxis.set_major_locator(MultipleLocator(0.1))
-    ax2.tick_params(axis='y', labelsize=21)
-    ax2.set_xlabel('$\\ell2$ loss weight $w_m$', fontsize=21)
-    ax2.grid(True, which='major', linestyle='--', linewidth=0.8)
-    ax2.minorticks_on()
-    ax2.tick_params(which='major', direction='in')
-    ax2.xaxis.set_ticks_position('both')
-    ax2.yaxis.set_ticks_position('both')
-    ax2.legend(fontsize=21, loc='lower right', bbox_to_anchor=(1., 0.1))
+    base_mean = [0.787]
+    mean = np.array([0.696, 0.92, 0.938, 0.905, 0.881, 0.535])
+    value = np.array([0, 0.0001, 0.001, 0.01, 0.1, 1])
+    ax12.plot(np.arange(len(value)), mean, 'x-', markersize=7, color='#7570A0', linewidth=2,
+              markeredgecolor=darken_color('#7570A0', 0.2), label='FEO')
+    ax12.plot(np.arange(len(value)), base_mean * len(value), markersize=7, color='#F7B76D', linewidth=2,
+              markeredgecolor=darken_color('#F7B76D', 0.2), label='Best Baseline')
+    ax12.set_xticks(np.arange(len(value)))
+    ax12.set_xticklabels(value, fontsize=21)
+    ax12.set_ylim(0.2, 1.2)
+    ax12.yaxis.set_major_locator(MultipleLocator(0.2))
+    ax12.tick_params(axis='y', labelsize=21)
+    ax12.set_xlabel('$\ell_2$ loss weight $w_m$', fontsize=21)
+    ax12.set_ylabel('Recall@50 (%)', fontsize=21)
+    ax12.grid(True, which='major', linestyle='--', linewidth=0.5, color='black', dashes=(20, 10))
+    ax12.minorticks_on()
+    ax12.tick_params(which='major', direction='in')
+    ax12.xaxis.set_ticks_position('both')
+    ax12.yaxis.set_ticks_position('both')
 
-    mean = np.array([0.51, 1.014, 0.934, 0.861, 0.852, 0.886, 0.846, 0.831])[::-1].copy()
-    value = np.array([0.1, 0.03, 0.01, 0.003, 0.001, 0.0003, 0.0001, 0])[::-1].copy()
-    ax3.plot(np.arange(len(value)), mean, 'x-', markersize=7, color='#7570A0', linewidth=2,
-             markeredgecolor=darken_color('#7570A0', 0.2), label='FEO')
-    ax3.plot(np.arange(len(value)), base_mean * len(value), markersize=7, color='#F7B76D', linewidth=2,
-             markeredgecolor=darken_color('#F7B76D', 0.2), label='None')
-    ax3.set_title('Analysis of hyper-parameter $w_d$', fontsize=19)
-    ax3.set_xticks(np.arange(len(value)))
-    ax3.set_xticklabels(value, fontsize=21)
-    # ax3.yaxis.set_major_locator(MultipleLocator(0.1))
-    ax3.tick_params(axis='y', labelsize=21)
-    ax3.set_xlabel('Diverse loss weight $w_d$', fontsize=21)
-    ax3.grid(True, which='major', linestyle='--', linewidth=0.8)
-    ax3.minorticks_on()
-    ax3.tick_params(which='major', direction='in')
-    ax3.xaxis.set_ticks_position('both')
-    ax3.yaxis.set_ticks_position('both')
-    ax3.legend(fontsize=21, loc='lower right', bbox_to_anchor=(1., 0.1))
+    base_mean = [0.787]
+    mean = np.array([0.83, 0.846, 0.854, 0.934, 0.51, 0.542])
+    value = np.array([0, 0.0001, 0.001, 0.01, 0.1, 1])
+    ax13.plot(np.arange(len(value)), mean, 'x-', markersize=7, color='#7570A0', linewidth=2,
+              markeredgecolor=darken_color('#7570A0', 0.2), label='FEO')
+    ax13.plot(np.arange(len(value)), base_mean * len(value), markersize=7, color='#F7B76D', linewidth=2,
+              markeredgecolor=darken_color('#F7B76D', 0.2), label='Best Baseline')
+    ax13.set_xticks(np.arange(len(value)))
+    ax13.set_xticklabels(value, fontsize=21)
+    ax13.set_ylim(0.2, 1.2)
+    ax13.yaxis.set_major_locator(MultipleLocator(0.2))
+    ax13.tick_params(axis='y', labelsize=21)
+    ax13.set_xlabel('Diverse loss weight $w_d$', fontsize=21)
+    ax13.set_ylabel('Recall@50 (%)', fontsize=21)
+    ax13.grid(True, which='major', linestyle='--', linewidth=0.5, color='black', dashes=(20, 10))
+    ax13.minorticks_on()
+    ax13.tick_params(which='major', direction='in')
+    ax13.xaxis.set_ticks_position('both')
+    ax13.yaxis.set_ticks_position('both')
 
-    mean = np.array([0.92, 0.982, 0.998, 0.852, 0.844, 0.844, 0.844, 0.844, 0.844])[::-1].copy()
-    value = np.array([1, 0.99, 0.95, 0.9, 0.8, 0.7, 0.6, 0.5, 0])[::-1].copy()
-    ax4.plot(np.arange(len(value)), mean, 'x-', markersize=7, color='#7570A0', linewidth=2,
-             markeredgecolor=darken_color('#7570A0', 0.2), label='FEO')
-    ax4.plot(np.arange(len(value)), base_mean * len(value), markersize=7, color='#F7B76D', linewidth=2,
-             markeredgecolor=darken_color('#F7B76D', 0.2), label='None')
-    ax4.set_title('Analysis of hyper-parameter $p$', fontsize=19)
-    ax4.set_xticks(np.arange(len(value)))
-    ax4.set_xticklabels(value, fontsize=21)
-    # ax4.yaxis.set_major_locator(MultipleLocator(0.1))
-    ax4.tick_params(axis='y', labelsize=21)
-    ax4.set_xlabel('Probability penalty coefficient $p$', fontsize=21)
-    ax4.grid(True, which='major', linestyle='--', linewidth=0.8)
-    ax4.minorticks_on()
-    ax4.tick_params(which='major', direction='in')
-    ax4.xaxis.set_ticks_position('both')
-    ax4.yaxis.set_ticks_position('both')
-    ax4.legend(fontsize=21, loc='lower right', bbox_to_anchor=(1., 0.1))
-    plt.tight_layout()
+    base_mean = [0.787]
+    mean = np.array([0.844, 0.844, 0.854, 0.998, 0.982, 0.92])
+    value = np.array([0, 0.8, 0.9, 0.95, 0.99, 1])
+    ax21.plot(np.arange(len(value)), mean, 'x-', markersize=7, color='#7570A0', linewidth=2,
+              markeredgecolor=darken_color('#7570A0', 0.2), label='FEO')
+    ax21.plot(np.arange(len(value)), base_mean * len(value), markersize=7, color='#F7B76D', linewidth=2,
+              markeredgecolor=darken_color('#F7B76D', 0.2), label='Best Baseline')
+    ax21.set_xticks(np.arange(len(value)))
+    ax21.set_xticklabels(value, fontsize=21)
+    ax21.set_ylim(0.2, 1.2)
+    ax21.yaxis.set_major_locator(MultipleLocator(0.2))
+    ax21.tick_params(axis='y', labelsize=21)
+    ax21.set_xlabel('Probability penalty coefficient $p$', fontsize=21)
+    ax21.set_ylabel('Recall@50 (%)', fontsize=21)
+    ax21.grid(True, which='major', linestyle='--', linewidth=0.5, color='black', dashes=(20, 10))
+    ax21.minorticks_on()
+    ax21.tick_params(which='major', direction='in')
+    ax21.xaxis.set_ticks_position('both')
+    ax21.yaxis.set_ticks_position('both')
+
+    base_mean = [0.787]
+    mean = np.array([0.978, 0.854, 0.561, 0.349, 0.448])
+    value = np.array([5, 10, 20, 50, 100])
+    ax22.plot(np.arange(len(value)), mean, 'x-', markersize=7, color='#7570A0', linewidth=2,
+              markeredgecolor=darken_color('#7570A0', 0.2), label='FEO')
+    ax22.plot(np.arange(len(value)), base_mean * len(value), markersize=7, color='#F7B76D', linewidth=2,
+              markeredgecolor=darken_color('#F7B76D', 0.2), label='Best Baseline')
+    ax22.set_xticks(np.arange(len(value)))
+    ax22.set_xticklabels(value, fontsize=21)
+    ax22.set_ylim(0.2, 1.2)
+    ax22.yaxis.set_major_locator(MultipleLocator(0.2))
+    ax22.tick_params(axis='y', labelsize=21)
+    ax22.set_xlabel('Fake user generation step $s$', fontsize=21)
+    ax22.set_ylabel('Recall@50 (%)', fontsize=21)
+    ax22.grid(True, which='major', linestyle='--', linewidth=0.5, color='black', dashes=(20, 10))
+    ax22.minorticks_on()
+    ax22.tick_params(which='major', direction='in')
+    ax22.xaxis.set_ticks_position('both')
+    ax22.yaxis.set_ticks_position('both')
+
+    base_mean = [0.787]
+    mean = np.array([0.759, 0.854, 0.952, 1.001, 0.961, 0.868])
+    value = np.array([0.01, 0.05, 0.1, 0.2, 0.5, 1])
+    ax23.plot(np.arange(len(value)), mean, 'x-', markersize=7, color='#7570A0', linewidth=2,
+              markeredgecolor=darken_color('#7570A0', 0.2), label='FEO')
+    ax23.plot(np.arange(len(value)), base_mean * len(value), markersize=7, color='#F7B76D', linewidth=2,
+              markeredgecolor=darken_color('#F7B76D', 0.2), label='Best Baseline')
+    ax23.set_xticks(np.arange(len(value)))
+    ax23.set_xticklabels(value, fontsize=21)
+    ax23.set_ylim(0.2, 1.2)
+    ax23.yaxis.set_major_locator(MultipleLocator(0.2))
+    ax23.tick_params(axis='y', labelsize=21)
+    ax23.set_xlabel('Target hit ratio $h$', fontsize=21)
+    ax23.set_ylabel('Recall@50 (%)', fontsize=21)
+    ax23.grid(True, which='major', linestyle='--', linewidth=0.5, color='black', dashes=(20, 10))
+    ax23.minorticks_on()
+    ax23.tick_params(which='major', direction='in')
+    ax23.xaxis.set_ticks_position('both')
+    ax23.yaxis.set_ticks_position('both')
+
+    handles, labels = [], []
+    for h, l in zip(*ax11.get_legend_handles_labels()):
+        handles.append(h)
+        labels.append(l)
+    fig.legend(handles, labels, loc='upper center', ncol=len(handles), fontsize=21)
+    plt.tight_layout(rect=[0, 0, 1, 0.9])
     pdf.savefig()
     plt.close(fig)
     pdf.close()
 
-    pdf = PdfPages('hyper-yelp.pdf')
-    base_mean = [0.206]
-    mean = np.array([0.849, 1.007, 0.489, 0.171, 0.163, 0.152, 0.143, 0.138])[::-1].copy()
-    value = np.array([0.1, 0.03, 0.01, 0.003, 0.001, 0.0003, 0.0001, 0])[::-1].copy()
-    fig, (ax1, ax2, ax3, ax4) = plt.subplots(nrows=1, ncols=4, constrained_layout=True, figsize=(30, 5))
-    ax1.plot(np.arange(len(value)), mean, 'x-', markersize=7, color='#7570A0', linewidth=2,
-             markeredgecolor=darken_color('#7570A0', 0.2), label='FEO')
-    ax1.plot(np.arange(len(value)), base_mean * len(value), markersize=7, color='#F7B76D', linewidth=2,
-             markeredgecolor=darken_color('#F7B76D', 0.2), label='None')
-    ax1.set_title('Analysis of hyper-parameter $w_p$', fontsize=19)
-    ax1.set_xticks(np.arange(len(value)))
-    ax1.set_xticklabels(value, fontsize=21)
-    # ax1.yaxis.set_major_locator(MultipleLocator(0.1))
-    ax1.tick_params(axis='y', labelsize=21)
-    ax1.set_xlabel('Promotion loss weight $w_p$', fontsize=21)
-    ax1.set_ylabel('Recall@50 (%)', fontsize=21)
-    ax1.grid(True, which='major', linestyle='--', linewidth=0.8)
-    ax1.minorticks_on()
-    ax1.tick_params(which='major', direction='in')
-    ax1.xaxis.set_ticks_position('both')
-    ax1.yaxis.set_ticks_position('both')
-    ax1.legend(fontsize=21, loc='lower right', bbox_to_anchor=(1., 0.1))
+    pdf = PdfPages('hyper-amazon.pdf')
+    base_mean = [0.399]
+    mean = np.array([0.079, 0.793, 1.692, 0.161, 0.147, 0.135])
+    value = np.array([0, 0.0001, 0.001, 0.01, 0.1, 1])
+    fig, ((ax11, ax12, ax13), (ax21, ax22, ax23)) = (
+        plt.subplots(nrows=2, ncols=3, constrained_layout=True, figsize=(20, 8)))
+    ax11.plot(np.arange(len(value)), mean, 'x-', markersize=7, color='#7570A0', linewidth=2,
+              markeredgecolor=darken_color('#7570A0', 0.2), label='FEO')
+    ax11.plot(np.arange(len(value)), base_mean * len(value), markersize=7, color='#F7B76D', linewidth=2,
+              markeredgecolor=darken_color('#F7B76D', 0.2), label='Best Baseline')
+    ax11.set_xticks(np.arange(len(value)))
+    ax11.set_xticklabels(value, fontsize=21)
+    ax11.set_ylim(0., 2.)
+    ax11.yaxis.set_major_locator(MultipleLocator(0.4))
+    ax11.tick_params(axis='y', labelsize=21)
+    ax11.set_xlabel('Promotion loss weight $w_p$', fontsize=21)
+    ax11.set_ylabel('Recall@50 (%)', fontsize=21)
+    ax11.grid(True, which='major', linestyle='--', linewidth=0.5, color='black', dashes=(20, 10))
+    ax11.minorticks_on()
+    ax11.tick_params(which='major', direction='in')
+    ax11.xaxis.set_ticks_position('both')
+    ax11.yaxis.set_ticks_position('both')
 
-    mean = np.array([1.007, 0.979, 1.042, 0.466, 0.283, 0.287, 0.285, 0.293])[::-1].copy()
-    value = np.array([0.1, 0.03, 0.01, 0.003, 0.001, 0.0003, 0.0001, 0])[::-1].copy()
-    ax2.plot(np.arange(len(value)), mean, 'x-', markersize=7, color='#7570A0', linewidth=2,
-             markeredgecolor=darken_color('#7570A0', 0.2), label='FEO')
-    ax2.plot(np.arange(len(value)), base_mean * len(value), markersize=7, color='#F7B76D', linewidth=2,
-             markeredgecolor=darken_color('#F7B76D', 0.2), label='None')
-    ax2.set_title('Analysis of hyper-parameter $w_m$', fontsize=19)
-    ax2.set_xticks(np.arange(len(value)))
-    ax2.set_xticklabels(value, fontsize=21)
-    # ax2.yaxis.set_major_locator(MultipleLocator(0.1))
-    ax2.tick_params(axis='y', labelsize=21)
-    ax2.set_xlabel('$\\ell2$ loss weight $w_m$', fontsize=21)
-    ax2.grid(True, which='major', linestyle='--', linewidth=0.8)
-    ax2.minorticks_on()
-    ax2.tick_params(which='major', direction='in')
-    ax2.xaxis.set_ticks_position('both')
-    ax2.yaxis.set_ticks_position('both')
-    ax2.legend(fontsize=21, loc='lower right', bbox_to_anchor=(1., 0.1))
+    base_mean = [0.399]
+    mean = np.array([0.361, 1.287, 1.692, 0.146, 0.146, 0.186])
+    value = np.array([0, 0.0001, 0.001, 0.01, 0.1, 1])
+    ax12.plot(np.arange(len(value)), mean, 'x-', markersize=7, color='#7570A0', linewidth=2,
+              markeredgecolor=darken_color('#7570A0', 0.2), label='FEO')
+    ax12.plot(np.arange(len(value)), base_mean * len(value), markersize=7, color='#F7B76D', linewidth=2,
+              markeredgecolor=darken_color('#F7B76D', 0.2), label='Best Baseline')
+    ax12.set_xticks(np.arange(len(value)))
+    ax12.set_xticklabels(value, fontsize=21)
+    ax12.set_ylim(0., 2.)
+    ax12.yaxis.set_major_locator(MultipleLocator(0.4))
+    ax12.tick_params(axis='y', labelsize=21)
+    ax12.set_xlabel('$\ell_2$ loss weight $w_m$', fontsize=21)
+    ax12.set_ylabel('Recall@50 (%)', fontsize=21)
+    ax12.grid(True, which='major', linestyle='--', linewidth=0.5, color='black', dashes=(20, 10))
+    ax12.minorticks_on()
+    ax12.tick_params(which='major', direction='in')
+    ax12.xaxis.set_ticks_position('both')
+    ax12.yaxis.set_ticks_position('both')
 
-    mean = np.array([1.007, 0.966, 0.991, 0.953, 1.027, 1.001, 0.892, 0.883])[::-1].copy()
-    value = np.array([0.1, 0.03, 0.01, 0.003, 0.001, 0.0003, 0.0001, 0])[::-1].copy()
-    ax3.plot(np.arange(len(value)), mean, 'x-', markersize=7, color='#7570A0', linewidth=2,
-             markeredgecolor=darken_color('#7570A0', 0.2), label='FEO')
-    ax3.plot(np.arange(len(value)), base_mean * len(value), markersize=7, color='#F7B76D', linewidth=2,
-             markeredgecolor=darken_color('#F7B76D', 0.2), label='None')
-    ax3.set_title('Analysis of hyper-parameter $w_d$', fontsize=19)
-    ax3.set_xticks(np.arange(len(value)))
-    ax3.set_xticklabels(value, fontsize=21)
-    # ax3.yaxis.set_major_locator(MultipleLocator(0.1))
-    ax3.tick_params(axis='y', labelsize=21)
-    ax3.set_xlabel('Diverse loss weight $w_d$', fontsize=21)
-    ax3.grid(True, which='major', linestyle='--', linewidth=0.8)
-    ax3.minorticks_on()
-    ax3.tick_params(which='major', direction='in')
-    ax3.xaxis.set_ticks_position('both')
-    ax3.yaxis.set_ticks_position('both')
-    ax3.legend(fontsize=21, loc='lower right', bbox_to_anchor=(1., 0.1))
+    base_mean = [0.399]
+    mean = np.array([1.366, 1.554, 1.665, 0.196, 0.197, 0.234])
+    value = np.array([0, 0.0001, 0.001, 0.01, 0.1, 1])
+    ax13.plot(np.arange(len(value)), mean, 'x-', markersize=7, color='#7570A0', linewidth=2,
+              markeredgecolor=darken_color('#7570A0', 0.2), label='FEO')
+    ax13.plot(np.arange(len(value)), base_mean * len(value), markersize=7, color='#F7B76D', linewidth=2,
+              markeredgecolor=darken_color('#F7B76D', 0.2), label='Best Baseline')
+    ax13.set_xticks(np.arange(len(value)))
+    ax13.set_xticklabels(value, fontsize=21)
+    ax13.set_ylim(0., 2.)
+    ax13.yaxis.set_major_locator(MultipleLocator(0.4))
+    ax13.tick_params(axis='y', labelsize=21)
+    ax13.set_xlabel('Diverse loss weight $w_d$', fontsize=21)
+    ax13.set_ylabel('Recall@50 (%)', fontsize=21)
+    ax13.grid(True, which='major', linestyle='--', linewidth=0.5, color='black', dashes=(20, 10))
+    ax13.minorticks_on()
+    ax13.tick_params(which='major', direction='in')
+    ax13.xaxis.set_ticks_position('both')
+    ax13.yaxis.set_ticks_position('both')
 
-    mean = np.array([0.585, 0.903, 0.957, 1.007, 1.007, 1.007, 1.007, 1.007, 1.007])[::-1].copy()
-    value = np.array([1, 0.99, 0.95, 0.9, 0.8, 0.7, 0.6, 0.5, 0])[::-1].copy()
-    ax4.plot(np.arange(len(value)), mean, 'x-', markersize=7, color='#7570A0', linewidth=2,
-             markeredgecolor=darken_color('#7570A0', 0.2), label='FEO')
-    ax4.plot(np.arange(len(value)), base_mean * len(value), markersize=7, color='#F7B76D', linewidth=2,
-             markeredgecolor=darken_color('#F7B76D', 0.2), label='None')
-    ax4.set_title('Analysis of hyper-parameter $p$', fontsize=19)
-    ax4.set_xticks(np.arange(len(value)))
-    ax4.set_xticklabels(value, fontsize=21)
-    # ax4.yaxis.set_major_locator(MultipleLocator(0.1))
-    ax4.tick_params(axis='y', labelsize=21)
-    ax4.set_xlabel('Probability penalty coefficient $p$', fontsize=21)
-    ax4.grid(True, which='major', linestyle='--', linewidth=0.8)
-    ax4.minorticks_on()
-    ax4.tick_params(which='major', direction='in')
-    ax4.xaxis.set_ticks_position('both')
-    ax4.yaxis.set_ticks_position('both')
-    ax4.legend(fontsize=21, loc='lower right', bbox_to_anchor=(1., 0.1))
-    plt.tight_layout()
+    base_mean = [0.399]
+    mean = np.array([1.426, 1.365, 1.692, 1.704, 0.806, 0.339])
+    value = np.array([0, 0.8, 0.9, 0.95, 0.99, 1])
+    ax21.plot(np.arange(len(value)), mean, 'x-', markersize=7, color='#7570A0', linewidth=2,
+              markeredgecolor=darken_color('#7570A0', 0.2), label='FEO')
+    ax21.plot(np.arange(len(value)), base_mean * len(value), markersize=7, color='#F7B76D', linewidth=2,
+              markeredgecolor=darken_color('#F7B76D', 0.2), label='Best Baseline')
+    ax21.set_xticks(np.arange(len(value)))
+    ax21.set_xticklabels(value, fontsize=21)
+    ax21.set_ylim(0., 2.)
+    ax21.yaxis.set_major_locator(MultipleLocator(0.4))
+    ax21.tick_params(axis='y', labelsize=21)
+    ax21.set_xlabel('Probability penalty coefficient $p$', fontsize=21)
+    ax21.set_ylabel('Recall@50 (%)', fontsize=21)
+    ax21.grid(True, which='major', linestyle='--', linewidth=0.5, color='black', dashes=(20, 10))
+    ax21.minorticks_on()
+    ax21.tick_params(which='major', direction='in')
+    ax21.xaxis.set_ticks_position('both')
+    ax21.yaxis.set_ticks_position('both')
+
+    base_mean = [0.399]
+    mean = np.array([1.756, 1.692, 0.754, 0.108, 0.478])
+    value = np.array([50, 100, 200, 500, 1000])
+    ax22.plot(np.arange(len(value)), mean, 'x-', markersize=7, color='#7570A0', linewidth=2,
+              markeredgecolor=darken_color('#7570A0', 0.2), label='FEO')
+    ax22.plot(np.arange(len(value)), base_mean * len(value), markersize=7, color='#F7B76D', linewidth=2,
+              markeredgecolor=darken_color('#F7B76D', 0.2), label='Best Baseline')
+    ax22.set_xticks(np.arange(len(value)))
+    ax22.set_xticklabels(value, fontsize=21)
+    ax22.set_ylim(0., 2.)
+    ax22.yaxis.set_major_locator(MultipleLocator(0.4))
+    ax22.tick_params(axis='y', labelsize=21)
+    ax22.set_xlabel('Fake user generation step $s$', fontsize=21)
+    ax22.set_ylabel('Recall@50 (%)', fontsize=21)
+    ax22.grid(True, which='major', linestyle='--', linewidth=0.5, color='black', dashes=(20, 10))
+    ax22.minorticks_on()
+    ax22.tick_params(which='major', direction='in')
+    ax22.xaxis.set_ticks_position('both')
+    ax22.yaxis.set_ticks_position('both')
+
+    base_mean = [0.399]
+    mean = np.array([1.216, 1.692, 1.141, 0.427, 0.274, 0.029])
+    value = np.array([0.01, 0.05, 0.1, 0.2, 0.5, 1])
+    ax23.plot(np.arange(len(value)), mean, 'x-', markersize=7, color='#7570A0', linewidth=2,
+              markeredgecolor=darken_color('#7570A0', 0.2), label='FEO')
+    ax23.plot(np.arange(len(value)), base_mean * len(value), markersize=7, color='#F7B76D', linewidth=2,
+              markeredgecolor=darken_color('#F7B76D', 0.2), label='Best Baseline')
+    ax23.set_xticks(np.arange(len(value)))
+    ax23.set_xticklabels(value, fontsize=21)
+    ax23.set_ylim(0., 2.)
+    ax23.yaxis.set_major_locator(MultipleLocator(0.4))
+    ax23.tick_params(axis='y', labelsize=21)
+    ax23.set_xlabel('Target hit ratio $h$', fontsize=21)
+    ax23.set_ylabel('Recall@50 (%)', fontsize=21)
+    ax23.grid(True, which='major', linestyle='--', linewidth=0.5, color='black', dashes=(20, 10))
+    ax23.minorticks_on()
+    ax23.tick_params(which='major', direction='in')
+    ax23.xaxis.set_ticks_position('both')
+    ax23.yaxis.set_ticks_position('both')
+
+    handles, labels = [], []
+    for h, l in zip(*ax11.get_legend_handles_labels()):
+        handles.append(h)
+        labels.append(l)
+    fig.legend(handles, labels, loc='upper center', ncol=len(handles), fontsize=21)
+    plt.tight_layout(rect=[0, 0, 1, 0.9])
     pdf.savefig()
     plt.close(fig)
     pdf.close()
-
 
 
 if __name__ == '__main__':

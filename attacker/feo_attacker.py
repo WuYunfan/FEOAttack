@@ -45,6 +45,7 @@ class FEOAttacker(BasicAttacker):
         for u_idx, f_u in enumerate(temp_fake_user_tensor):
             item_score = scores[u_idx, :]
             item_score[counts >= self.filler_limit] = 0.
+            item_score[self.target_item_tensor] = 0.
             filler_items = item_score.topk(self.n_inters - self.target_items.shape[0]).indices
             counts[filler_items] = counts[filler_items] + 1
             if self.validate_topk is not None:
@@ -77,13 +78,17 @@ class FEOAttacker(BasicAttacker):
                 top_scores = scores.topk(self.topk, dim=1).values[:, -1:]
                 adv_loss =  goal_oriented_loss(target_scores, top_scores, self.expected_hr)
                 surrogate_embedding = fmodel.init_fast_params[0]
+                adv_grads = torch.autograd.grad(self.adv_weight * adv_loss, surrogate_embedding)[0][temp_fake_user_tensor]
+                c_adv_grads, n_batches = c_adv_grads + adv_grads, n_batches + 1
+
                 fake_user_embedding = surrogate_embedding[temp_fake_user_tensor]
                 real_user_embedding = surrogate_embedding[:self.n_users]
                 kl = kl_estimate(fake_user_embedding, real_user_embedding)
-                total_fake_loss = self.adv_weight * adv_loss
-                total_fake_loss = total_fake_loss + self.kl_weight * kl
-                adv_grads = torch.autograd.grad(total_fake_loss, surrogate_embedding)[0][temp_fake_user_tensor]
-                c_adv_grads, n_batches = c_adv_grads + adv_grads, n_batches + 1
+                kl_grads =  torch.autograd.grad(self.kl_weight * kl, surrogate_embedding)[0][temp_fake_user_tensor]
+                surrogate_trainer.opt.zero_grad()
+                surrogate_model.embedding.weight.grad = torch.zeros_like(surrogate_model.embedding.weight)
+                surrogate_model.embedding.weight.grad[temp_fake_user_tensor] = kl_grads
+                surrogate_trainer.opt.step()
 
             unroll_train_losses.update(unroll_train_loss.mean().item())
             adv_losses.update(adv_loss.item(), target_user.shape[0])

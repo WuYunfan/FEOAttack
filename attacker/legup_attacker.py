@@ -30,15 +30,16 @@ class DiscreteAutoEncoder(nn.Module):
         self.encoder_layers = nn.ModuleList(self.encoder_layers)
         self.decoder_layers = nn.ModuleList(self.decoder_layers)
         self.layers = self.encoder_layers + self.decoder_layers
+        self.device = device
         self.to(device=self.device)
 
-    def forward(self, profiles):
+    def forward(self, profiles, discrete=True):
         x = F.normalize(profiles, p=2, dim=1)
         for i, layer in enumerate(self.layers):
             x = layer(x)
             if i != len(self.layers) - 1:
                 x = F.relu(x)
-            else:
+            elif discrete:
                 x = HeaviTanh.apply(x)
         return x
 
@@ -47,13 +48,14 @@ class Discriminator(nn.Module):
     def __init__(self, layer_sizes, device):
         super(Discriminator, self).__init__()
         layers = []
-        for i in range(len(layer_sizes) - 1):
-            layers.append(init_one_layer(layer_sizes[i], layer_sizes[i + 1]))
-            if i < len(layer_sizes) - 2:
+        for i in range(1, len(layer_sizes)):
+            layers.append(init_one_layer(layer_sizes[i - 1], layer_sizes[i]))
+            if i < len(layer_sizes) - 1:
                 layers.append(nn.ReLU())
             else:
                 layers.append(nn.Sigmoid())
         self.net = nn.Sequential(*layers)
+        self.device = device
         self.to(device=self.device)
 
     def forward(self, x):
@@ -71,6 +73,7 @@ class LegUPAttacker(BasicAttacker):
         self.n_pretrain_d_epochs = attacker_config['n_pretrain_d_epochs']
         self.n_g_steps = attacker_config['n_g_steps']
         self.n_d_steps = attacker_config['n_d_steps']
+        self.n_attack_steps = attacker_config['n_attack_steps']
 
         self.surrogate_model_config['n_fakes'] = self.n_fakes
         self.surrogate_model = get_model(self.surrogate_model_config, self.dataset)
@@ -81,16 +84,17 @@ class LegUPAttacker(BasicAttacker):
         self.d_opt = Adam(self.d.parameters(), lr=attacker_config['lr_d'])
 
         self.data_tensor = self.surrogate_trainer.data_tensor
-        self.template_indices = torch.randint(self.n_users, size=[self.n_fakes])
+        self.template_indices = torch.randperm(self.n_users)[:self.n_fakes]
         self.fake_tensor = None
 
         self.target_user_tensor = torch.arange(self.n_users, dtype=torch.int64, device=self.device)
         self.real_user_loader = DataLoader(TensorDataset(self.target_user_tensor),
                                            batch_size=self.n_fakes, shuffle=True)
         self.target_item_tensor = torch.tensor(self.target_items, dtype=torch.int64, device=self.device)
+        self.save_memory_mode = attacker_config['save_memory_mode']
 
 
-    def train_d(self, verbose=False, writer=None):
+    def train_d(self, verbose=True, writer=None):
         self.d.train()
         with torch.no_grad():
             fake_tensor = self.g(self.data_tensor[self.template_indices])
@@ -120,7 +124,7 @@ class LegUPAttacker(BasicAttacker):
             writer.add_scalar('{:s}/Real_Correct'.format(self.name), real_corrects.avg)
             writer.add_scalar('{:s}/Fake_Correct'.format(self.name), fake_corrects.avg)
 
-    def train_g(self, stealth=False, adv=False, reconstruct=False, verbose=False, writer=None):
+    def train_g(self, stealth=False, attack=False, reconstruct=False, verbose=True, writer=None):
         self.g.train()
         fake_tensor = self.g(self.data_tensor[self.template_indices])
         self.g_opt.zero_grad()
@@ -135,7 +139,7 @@ class LegUPAttacker(BasicAttacker):
                 writer.add_scalar('{:s}/Stealth_Loss'.format(self.name), stealth_loss.item())
                 writer.add_scalar('{:s}/Stealth_Ratio'.format(self.name), stealth_ratio.item())
 
-        if adv:
+        if attack:
             self.fake_tensor = fake_tensor
             adv_loss, hr, adv_grads = retrain_surrogate(self)
             params = [p for p in self.g.parameters() if p.requires_grad]
@@ -155,5 +159,36 @@ class LegUPAttacker(BasicAttacker):
                 writer.add_scalar('{:s}/MSE_Loss'.format(self.name), mse_loss.item())
 
         self.g_opt.step()
+
+    def train(self, verbose=True, writer=None):
+        print('pretrain G......')
+        for epoch in range(self.n_pretrain_g_epochs):
+            vprint(f'Pretrain Generator Epoch: {epoch}, ', verbose, end='')
+            self.train_g(reconstruct=True, verbose=verbose, writer=writer)
+
+        print('pretrain D......')
+        for epoch in range(self.n_pretrain_d_epochs):
+            vprint(f'Pretrain Discriminator Epoch: {epoch}, ', verbose, end='')
+            self.train_d(verbose=verbose, writer=writer)
+        print('======================pretrain end======================\n')
+
+        for epoch in range(self.n_epochs):
+            vprint(f'==============epoch {epoch}===============', verbose)
+            for epoch_d in range(self.n_d_steps):
+                self.train_d(verbose=verbose, writer=writer)
+
+            for epoch_g in range(self.n_g_steps):
+                self.train_g(stealth=True, verbose=verbose, writer=writer)
+
+            for epoch_surrogate in range(self.n_attack_steps):
+                self.train_g(attack=True, verbose=verbose, writer=writer)
+
+    def generate_fake_users(self, verbose=True, writer=None):
+        self.train(verbose=verbose, writer=writer)
+        with torch.no_grad():
+            fake_tensor = self.g(self.data_tensor[self.template_indices], discrete=False)
+            filler_items = fake_tensor.topk(self.n_inters).indices
+        self.fake_user_inters = [filler_items[u_idx].cpu().numpu().tolist() for u_idx in range(self.n_fakes)]
+
 
 

@@ -131,9 +131,9 @@ def ce_loss(scores, target_item_tensor):
     return -log_probs[:, target_item_tensor].mean()
 
 
-def vprint(content, verbose):
+def vprint(content, verbose, end='\n'):
     if verbose:
-        print(content)
+        print(content, end=end)
 
 
 def get_target_hr(surrogate_model, target_user_loader, target_item_tensor, topk):

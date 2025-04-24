@@ -158,10 +158,11 @@ def goal_oriented_loss(target_scores, top_scores, expected_hr):
     return bottom_loss.mean()
 
 
-def kernel_matrix(A, B, h=2):
+def kernel_matrix(A, B, h=4):
     D = torch.cdist(A, B, p=2)
     K = torch.exp(- (D * D) / (2 * h * h))
     return K
+
 
 def kl_estimate(X, Y, k=10):
     normed_X, normed_Y = F.normalize(X, dim=1, p=2), F.normalize(Y, dim=1, p=2)
@@ -171,3 +172,18 @@ def kl_estimate(X, Y, k=10):
     q_hat = K_XY.topk(k, dim=1).values.mean(dim=1)
     kl = (torch.log(p_hat) -torch.log(q_hat)).mean()
     return kl
+
+
+class HeaviTanh(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, x):
+        ctx.save_for_backward(x)
+        x = torch.where(x <= 0., torch.zeros_like(x), torch.ones_like(x))
+        return x
+
+    @staticmethod
+    def backward(ctx, dy):
+        # 0.5 + 0.5 * torch.tanh(x)
+        x,  = ctx.saved_tensors
+        dtanh = 1 - x.tanh().pow(2)
+        return dy * dtanh * 0.5

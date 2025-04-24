@@ -107,6 +107,7 @@ class BasicTrainer:
             self.model.load(self.save_path)
             if not save:
                 os.remove(self.save_path)
+                self.save_path = None
             print('Best NDCG {:.3f}'.format(self.best_ndcg), ', reload the best model.')
         train_consumed_time = time.time() - train_start_time
         print('Total consumed time of training {:.3f}s'.format(train_consumed_time))

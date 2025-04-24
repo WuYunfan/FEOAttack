@@ -10,7 +10,7 @@ def get_gowalla_config(device):
     trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam',
                       'lr': 0.001, 'l2_reg': 0.001,
                       'n_epochs': 1000, 'batch_size': 2 ** 14, 'dataloader_num_workers': 6,
-                      'test_batch_size': 2048, 'topks': [50, 20]}
+                      'test_batch_size': 2048, 'topks': [50]}
     gowalla_config.append((dataset_config, model_config, trainer_config))
 
     model_config = {'name': 'MF', 'embedding_size': 64}
@@ -18,14 +18,14 @@ def get_gowalla_config(device):
                       'lr': 0.001, 'l2_reg': 0.001,
                       'eps': 1.0, 'adv_reg': 0.01, 'ckpt_path': 'checkpoints/pretrain_mf.pth',
                       'n_epochs': 1000, 'batch_size': 2 ** 14, 'dataloader_num_workers': 6,
-                      'test_batch_size': 2048, 'topks': [50, 20]}
+                      'test_batch_size': 2048, 'topks': [50]}
     gowalla_config.append((dataset_config, model_config, trainer_config))
 
     model_config = {'name': 'LightGCN', 'embedding_size': 64, 'n_layers': 3}
     trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam',
                       'lr': 0.001, 'l2_reg': 1.e-05,
                       'n_epochs': 1000, 'batch_size': 2 ** 14, 'dataloader_num_workers': 6,
-                      'test_batch_size': 2048, 'topks': [50, 20]}
+                      'test_batch_size': 2048, 'topks': [50]}
     gowalla_config.append((dataset_config, model_config, trainer_config))
 
     model_config = {'name': 'MultiVAE', 'layer_sizes': [64, 32],
@@ -33,14 +33,14 @@ def get_gowalla_config(device):
     trainer_config = {'name': 'MLTrainer', 'optimizer': 'Adam',
                       'lr': 0.001, 'l2_reg': 0.0001, 'kl_reg': 0.2,
                       'n_epochs': 1000, 'batch_size': 2048,
-                      'test_batch_size': 2048, 'topks': [50, 20]}
+                      'test_batch_size': 2048, 'topks': [50]}
     gowalla_config.append((dataset_config, model_config, trainer_config))
 
     model_config = {'name': 'NeuMF', 'embedding_size': 64, 'layer_sizes': [64, 64, 64]}
     trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam',
                       'lr': 0.01, 'l2_reg': 0.01,
                       'n_epochs': 1000, 'batch_size': 2 ** 12, 'dataloader_num_workers': 6,
-                      'test_batch_size': 64, 'topks': [50, 20], 'mf_pretrain_epochs': 100,
+                      'test_batch_size': 64, 'topks': [50], 'mf_pretrain_epochs': 100,
                       'mlp_pretrain_epochs': 100, 'max_patience': 100, 'neg_ratio': 4}
     gowalla_config.append((dataset_config, model_config, trainer_config))
     return gowalla_config
@@ -135,7 +135,7 @@ def get_yelp_config(device):
     trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam',
                       'lr': 0.001, 'l2_reg': 0.001,
                       'n_epochs': 1000, 'batch_size': 2 ** 14, 'dataloader_num_workers': 6,
-                      'test_batch_size': 2048, 'topks': [50, 20]}
+                      'test_batch_size': 2048, 'topks': [50]}
     yelp_config.append((dataset_config, model_config, trainer_config))
 
     model_config = {'name': 'MF', 'embedding_size': 64}
@@ -143,14 +143,14 @@ def get_yelp_config(device):
                       'lr': 0.001, 'l2_reg': 0.001,
                       'eps': 1.0, 'adv_reg': 0.01, 'ckpt_path': 'checkpoints/pretrain_mf.pth',
                       'n_epochs': 1000, 'batch_size': 2 ** 14, 'dataloader_num_workers': 6,
-                      'test_batch_size': 2048, 'topks': [50, 20]}
+                      'test_batch_size': 2048, 'topks': [50]}
     yelp_config.append((dataset_config, model_config, trainer_config))
 
     model_config = {'name': 'LightGCN', 'embedding_size': 64, 'n_layers': 3}
     trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam',
                       'lr': 0.001, 'l2_reg': 1e-05,
                       'n_epochs': 1000, 'batch_size': 2 ** 14, 'dataloader_num_workers': 6,
-                      'test_batch_size': 2048, 'topks': [50, 20]}
+                      'test_batch_size': 2048, 'topks': [50]}
     yelp_config.append((dataset_config, model_config, trainer_config))
 
     model_config = {'name': 'MultiVAE', 'layer_sizes': [64, 32],
@@ -158,14 +158,14 @@ def get_yelp_config(device):
     trainer_config = {'name': 'MLTrainer', 'optimizer': 'Adam',
                       'lr': 0.001, 'l2_reg': 1e-05, 'kl_reg': 0.2,
                       'n_epochs': 1000, 'batch_size': 2048,
-                      'test_batch_size': 2048, 'topks': [50, 20]}
+                      'test_batch_size': 2048, 'topks': [50]}
     yelp_config.append((dataset_config, model_config, trainer_config))
 
     model_config = {'name': 'NeuMF', 'embedding_size': 64, 'layer_sizes': [64, 64, 64]}
     trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam',
                       'lr': 0.01, 'l2_reg': 0.01,
                       'n_epochs': 1000, 'batch_size': 2 ** 12, 'dataloader_num_workers': 6,
-                      'test_batch_size': 64, 'topks': [50, 20], 'mf_pretrain_epochs': 100,
+                      'test_batch_size': 64, 'topks': [50], 'mf_pretrain_epochs': 100,
                       'mlp_pretrain_epochs': 100, 'max_patience': 100, 'neg_ratio': 4}
     yelp_config.append((dataset_config, model_config, trainer_config))
     return yelp_config
@@ -261,7 +261,7 @@ def get_amazon_config(device):
     trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam',
                       'lr': 0.001, 'l2_reg': 0.001,
                       'n_epochs': 1000, 'batch_size': 2 ** 15, 'dataloader_num_workers': 10,
-                      'test_batch_size': 4096, 'topks': [50, 20]}
+                      'test_batch_size': 4096, 'topks': [50]}
     amazon_config.append((dataset_config, model_config, trainer_config))
 
     model_config = {'name': 'MF', 'embedding_size': 64}
@@ -269,14 +269,14 @@ def get_amazon_config(device):
                       'lr': 0.001, 'l2_reg': 0.001,
                       'eps': 1., 'adv_reg': 0.01, 'ckpt_path': 'checkpoints/pretrain_mf.pth',
                       'n_epochs': 1000, 'batch_size': 2 ** 15, 'dataloader_num_workers': 10,
-                      'test_batch_size': 4096, 'topks': [50, 20]}
+                      'test_batch_size': 4096, 'topks': [50]}
     amazon_config.append((dataset_config, model_config, trainer_config))
 
     model_config = {'name': 'LightGCN', 'embedding_size': 64, 'n_layers': 3}
     trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam',
                       'lr': 0.001, 'l2_reg': 0.,
                       'n_epochs': 1000, 'batch_size': 2 ** 15, 'dataloader_num_workers': 10,
-                      'test_batch_size': 4096, 'topks': [50, 20]}
+                      'test_batch_size': 4096, 'topks': [50]}
     amazon_config.append((dataset_config, model_config, trainer_config))
 
     model_config = {'name': 'MultiVAE', 'layer_sizes': [64, 32],
@@ -284,7 +284,7 @@ def get_amazon_config(device):
     trainer_config = {'name': 'MLTrainer', 'optimizer': 'Adam',
                       'lr': 0.001, 'l2_reg': 0., 'kl_reg': 0.2,
                       'n_epochs': 1000, 'batch_size': 4096,
-                      'test_batch_size': 4096, 'topks': [50, 20]}
+                      'test_batch_size': 4096, 'topks': [50]}
     amazon_config.append((dataset_config, model_config, trainer_config))
     return amazon_config
 

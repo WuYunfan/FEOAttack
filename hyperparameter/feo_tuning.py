@@ -14,7 +14,7 @@ import numpy as np
 
 def objective(trial):
     adv_weight = trial.suggest_categorical('adv_weight', [0.3, 0.1, 0.01])
-    kl_weight = trial.suggest_categorical('diverse_weight', [0.01, 0.001, 0.0001])
+    kl_weight = trial.suggest_categorical('kl_weight', [0.01, 0.001, 0.0001])
     set_seed(2023)
     device = torch.device('cuda')
     dataset_config, model_config, trainer_config = get_config(device)[0]

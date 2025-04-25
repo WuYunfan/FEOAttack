@@ -74,14 +74,18 @@ class LegUPAttacker(BasicAttacker):
         self.n_g_steps = attacker_config['n_g_steps']
         self.n_d_steps = attacker_config['n_d_steps']
         self.n_attack_steps = attacker_config['n_attack_steps']
+        self.unroll_steps = attacker_config['unroll_steps']
+        self.save_memory_mode = attacker_config['save_memory_mode']
+        self.lr_g = attacker_config['lr_g']
+        self.lr_d = attacker_config['lr_d']
 
         self.surrogate_model_config['n_fakes'] = self.n_fakes
         self.surrogate_model = get_model(self.surrogate_model_config, self.dataset)
         self.surrogate_trainer = get_trainer(self.surrogate_trainer_config, self.surrogate_model)
         self.g = DiscreteAutoEncoder([self.n_items] + attacker_config['g_layer_sizes'], self.device)
         self.d = Discriminator([self.n_items] + attacker_config['d_layer_sizes'], self.device)
-        self.g_opt = Adam(self.g.parameters(), lr=attacker_config['lr_g'])
-        self.d_opt = Adam(self.d.parameters(), lr=attacker_config['lr_d'])
+        self.g_opt = Adam(self.g.parameters(), lr=self.lr_g)
+        self.d_opt = Adam(self.d.parameters(), lr=self.lr_d)
 
         self.data_tensor = self.surrogate_trainer.data_tensor
         self.template_indices = torch.randperm(self.n_users)[:self.n_fakes]
@@ -91,12 +95,12 @@ class LegUPAttacker(BasicAttacker):
         self.real_user_loader = DataLoader(TensorDataset(self.target_user_tensor),
                                            batch_size=self.n_fakes, shuffle=True)
         self.target_item_tensor = torch.tensor(self.target_items, dtype=torch.int64, device=self.device)
-        self.save_memory_mode = attacker_config['save_memory_mode']
 
 
     def train_d(self, verbose=True, writer=None):
         self.d.train()
         with torch.no_grad():
+            self.g.eval()
             fake_tensor = self.g(self.data_tensor[self.template_indices])
 
         losses = AverageMeter()
@@ -152,11 +156,12 @@ class LegUPAttacker(BasicAttacker):
                 writer.add_scalar('{:s}/Hit_Ratio'.format(self.name), hr)
 
         if reconstruct:
-            mse_loss = F.mse_loss(fake_tensor, self.data_tensor[self.template_indices])
-            mse_loss.backward()
-            vprint(f'Reconstruct MSE Loss: {mse_loss.item():.6f}', verbose)
+            print(fake_tensor[0].gt(0.5).nonzero(), self.data_tensor[self.template_indices][0].nonzero(), 'sss')
+            bce_loss = F.binary_cross_entropy(fake_tensor, self.data_tensor[self.template_indices])
+            bce_loss.backward()
+            vprint(f'Reconstruct BCE Loss: {bce_loss.item():.6f}', verbose)
             if writer:
-                writer.add_scalar('{:s}/MSE_Loss'.format(self.name), mse_loss.item())
+                writer.add_scalar('{:s}/BCE_Loss'.format(self.name), bce_loss.item())
 
         self.g_opt.step()
 
@@ -174,21 +179,23 @@ class LegUPAttacker(BasicAttacker):
 
         for epoch in range(self.n_epochs):
             vprint(f'==============epoch {epoch}===============', verbose)
-            for epoch_d in range(self.n_d_steps):
+            for step_d in range(self.n_d_steps):
                 self.train_d(verbose=verbose, writer=writer)
 
-            for epoch_g in range(self.n_g_steps):
+            for step_g in range(self.n_g_steps):
                 self.train_g(stealth=True, verbose=verbose, writer=writer)
 
-            for epoch_surrogate in range(self.n_attack_steps):
+            for step_attack in range(self.n_attack_steps):
+                vprint(f'==============Step Attack {step_attack}===============', verbose)
                 self.train_g(attack=True, verbose=verbose, writer=writer)
 
     def generate_fake_users(self, verbose=True, writer=None):
         self.train(verbose=verbose, writer=writer)
         with torch.no_grad():
+            self.g.eval()
             fake_tensor = self.g(self.data_tensor[self.template_indices], discrete=False)
             filler_items = fake_tensor.topk(self.n_inters).indices
-        self.fake_user_inters = [filler_items[u_idx].cpu().numpu().tolist() for u_idx in range(self.n_fakes)]
+        self.fake_user_inters = [filler_items[u_idx].cpu().numpy().tolist() for u_idx in range(self.n_fakes)]
 
 
 

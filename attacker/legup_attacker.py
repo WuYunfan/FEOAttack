@@ -38,7 +38,7 @@ class DiscreteAutoEncoder(nn.Module):
         for i, layer in enumerate(self.layers):
             x = layer(x)
             if i != len(self.layers) - 1:
-                x = F.relu(x)
+                x = F.leaky_relu(x)
             elif discrete:
                 x = HeaviTanh.apply(x)
         return x
@@ -78,6 +78,7 @@ class LegUPAttacker(BasicAttacker):
         self.save_memory_mode = attacker_config['save_memory_mode']
         self.lr_g = attacker_config['lr_g']
         self.lr_d = attacker_config['lr_d']
+        self.reconstruct_weight = attacker_config['reconstruct_weight']
 
         self.surrogate_model_config['n_fakes'] = self.n_fakes
         self.surrogate_model = get_model(self.surrogate_model_config, self.dataset)
@@ -156,8 +157,9 @@ class LegUPAttacker(BasicAttacker):
                 writer.add_scalar('{:s}/Hit_Ratio'.format(self.name), hr)
 
         if reconstruct:
-            print(fake_tensor[0].gt(0.5).nonzero(), self.data_tensor[self.template_indices][0].nonzero(), 'sss')
-            bce_loss = F.binary_cross_entropy(fake_tensor, self.data_tensor[self.template_indices])
+            weight = torch.ones_like(self.data_tensor[self.template_indices])
+            weight[self.data_tensor[self.template_indices] > 0.5] = self.reconstruct_weight
+            bce_loss = F.binary_cross_entropy(fake_tensor, self.data_tensor[self.template_indices], weight)
             bce_loss.backward()
             vprint(f'Reconstruct BCE Loss: {bce_loss.item():.6f}', verbose)
             if writer:
@@ -182,9 +184,11 @@ class LegUPAttacker(BasicAttacker):
             for step_d in range(self.n_d_steps):
                 self.train_d(verbose=verbose, writer=writer)
 
+            self.g_opt = Adam(self.g.parameters(), lr=self.lr_g)
             for step_g in range(self.n_g_steps):
                 self.train_g(stealth=True, verbose=verbose, writer=writer)
 
+            self.g_opt = Adam(self.g.parameters(), lr=self.lr_g)
             for step_attack in range(self.n_attack_steps):
                 vprint(f'==============Step Attack {step_attack}===============', verbose)
                 self.train_g(attack=True, verbose=verbose, writer=writer)

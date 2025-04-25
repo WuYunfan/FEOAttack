@@ -15,9 +15,10 @@ def retrain_surrogate(self):
     self.surrogate_model.initial_embeddings()
     self.surrogate_trainer.initialize_optimizer()
     self.surrogate_trainer.best_ndcg = -np.inf
-    self.surrogate_trainer.merge_fake_tensor(self.fake_tensor)
-
+    self.surrogate_trainer.merge_fake_tensor(self.fake_tensor.detach())
     self.surrogate_trainer.train(verbose=False, save=False)
+
+    self.surrogate_trainer.merge_fake_tensor(self.fake_tensor)
     with higher.innerloop_ctx(self.surrogate_model, self.surrogate_trainer.opt) as (fmodel, diffopt):
         fmodel.train()
         for _ in range(self.unroll_steps):

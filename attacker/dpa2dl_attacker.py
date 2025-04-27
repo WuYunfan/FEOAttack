@@ -109,7 +109,6 @@ class DPA2DLAttacker(BasicAttacker):
             consumed_time = time.time() - start_time
             self.consumed_time += consumed_time
             print('Fake #{:s} has been generated! Time: {:.3f}s'.format(fake_nums_str, consumed_time))
-            gc.collect()
 
         self.dataset.train_data = self.dataset.train_data[:-self.n_fakes]
         self.dataset.val_data = self.dataset.val_data[:-self.n_fakes]

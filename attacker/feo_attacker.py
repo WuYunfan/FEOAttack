@@ -121,7 +121,6 @@ class FEOAttacker(BasicAttacker):
             if writer:
                 writer.add_scalar(writer_tag + '/Hit_Ratio@' + str(self.topk), target_hr, training_epoch)
         self.add_filler_items(surrogate_model, temp_fake_user_tensor)
-        gc.collect()
 
     def generate_fake_users(self, verbose=True, writer=None):
         fake_user_end_indices = list(np.arange(0, self.n_fakes, self.step_user, dtype=np.int64)) + [self.n_fakes]

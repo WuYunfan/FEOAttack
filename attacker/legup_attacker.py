@@ -15,10 +15,11 @@ from attacker.revadv_attacker import retrain_surrogate
 
 
 class DiscreteAutoEncoder(nn.Module):
-    def __init__(self, layer_sizes, device):
+    def __init__(self, layer_sizes, target_items, device):
         super(DiscreteAutoEncoder, self).__init__()
         self.e_layer_sizes = layer_sizes
         self.d_layer_sizes = self.e_layer_sizes[::-1].copy()
+        self.target_items = target_items
 
         self.encoder_layers = []
         self.decoder_layers = []
@@ -40,7 +41,9 @@ class DiscreteAutoEncoder(nn.Module):
             if i != len(self.layers) - 1:
                 x = F.leaky_relu(x)
             elif discrete:
-                x = HeaviTanh.apply(x)
+                bias = torch.zeros_like(x)
+                bias[:, self.target_items] = np.inf
+                x = HeaviTanh.apply(x + bias)
         return x
 
 
@@ -83,7 +86,7 @@ class LegUPAttacker(BasicAttacker):
         self.surrogate_model_config['n_fakes'] = self.n_fakes
         self.surrogate_model = get_model(self.surrogate_model_config, self.dataset)
         self.surrogate_trainer = get_trainer(self.surrogate_trainer_config, self.surrogate_model)
-        self.g = DiscreteAutoEncoder([self.n_items] + attacker_config['g_layer_sizes'], self.device)
+        self.g = DiscreteAutoEncoder([self.n_items] + attacker_config['g_layer_sizes'], self.target_items, self.device)
         self.d = Discriminator([self.n_items] + attacker_config['d_layer_sizes'], self.device)
         self.g_opt = Adam(self.g.parameters(), lr=self.lr_g)
         self.d_opt = Adam(self.d.parameters(), lr=self.lr_d)

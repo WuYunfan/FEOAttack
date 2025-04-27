@@ -44,8 +44,6 @@ def retrain_surrogate(self):
             scores = scores * (scores > torch.min(scores[:, self.target_item_tensor], dim=1, keepdim=True).values)
         adv_loss = ce_loss(scores, self.target_item_tensor)
         adv_grads = torch.autograd.grad(adv_loss, self.fake_tensor)[0]
-    gc.collect()
-    torch.cuda.empty_cache()
     return adv_loss.item(), hr.item(), adv_grads
 
 

@@ -119,7 +119,7 @@ class FAP(SDetection):
             randDict[randNum] = 0
             self.seedUser.append(int(self.spammer[randNum]))
             # print len(randDict), randDict
-        for i in range(0, self.s):
+        for i in range(0, self.s * 3):
             randNum = random.randint(0, m - 1)
             while randNum in self.seedUser:
                 randNum = random.randint(0, m - 1)

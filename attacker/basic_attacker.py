@@ -103,9 +103,11 @@ class BasicAttacker:
                 self.fake_user_inters[u - self.n_users] = []
 
 
-    def eval(self, model_config, trainer_config, verbose=True, writer=None, retrain=True, detect=False):
+    def eval(self, model_config, trainer_config, verbose=True, writer=None, retrain=True, detect=0):
         if detect:
             self.detect()
+            if detect == 2:
+                return None
 
         self.inject_fake_users()
 

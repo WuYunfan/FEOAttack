@@ -58,9 +58,6 @@ class PCASelectUsers(SDetection):
                 distance += tmp
             distanceDict[userId] = float(distance)
             userId += 1
-        x = np.zeros(self.userNum)
-        for k, v in distanceDict.items():
-            x[k] = v
         print('sort distance ')
         self.disSort = sorted(distanceDict.items(), key=lambda d: d[1], reverse=False)
 

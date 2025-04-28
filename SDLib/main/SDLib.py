@@ -47,15 +47,15 @@ class SDLib(object):
 
     def execute(self):
         # import the algorithm module
-        importStr = 'from models.detector.SDLib.method.' + self.config['methodName'] + ' import ' + self.config['methodName']
+        importStr = 'from SDLib.method.' + self.config['methodName'] + ' import ' + self.config['methodName']
         exec(importStr)
         if self.config.contains('social'):
             method = self.config[
                          'methodName'] + '(self.config,self.trainingData,self.testData,self.labels,self.relation)'
         else:
             method = self.config['methodName'] + '(self.config,self.trainingData,self.testData,self.labels)'
-        ans = eval(method).execute()
-        return [float(i) for i in ans]
+        precision, recall, return_label = eval(method).execute()
+        return float(precision), float(recall), return_label
 
 
 def run(measure, algor, order):

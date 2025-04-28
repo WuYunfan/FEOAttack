@@ -84,10 +84,10 @@ class BasicAttacker:
             f.write('\n'.join([f'{k}={v}' for k, v in args.items()]))
 
         sd = SDLib(Config(detection_config))
-        precision, recall = sd.execute()
+        precision, recall, return_label = sd.execute()
         print(f'Dection precision: {precision:.6f}, recall: {recall:.6f}')
         for u in range(self.n_users, self.n_users + self.n_fakes):
-            if sd.return_label[u] == 1:
+            if return_label[u] == 1:
                 self.fake_user_inters[u - self.n_users] = []
 
 

@@ -80,6 +80,20 @@ def get_gowalla_attacker_config():
     gowalla_attacker_config.append(attacker_config)
 
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
+    surrogate_trainer_config = {'name': 'UserBatchTrainer', 'optimizer': 'Adam', 'lr': 0.01, 'l2_reg': 0.001,
+                                'n_epochs': 45, 'batch_size': 2048, 'loss_function': 'mse_loss', 'weight': 20.,
+                                'test_batch_size': 2048, 'topks': [50], 'verbose': False}
+    attacker_config = {'name': 'LegUPAttacker', 'n_fakes': 131, 'topk': 50, 'n_inters': 41,
+                       'n_epochs': 3, 'n_pretrain_g_epochs': 45, 'n_pretrain_d_epochs': 5,
+                       'n_g_steps': 5, 'n_d_steps': 1, 'n_attack_steps': 50,
+                       'g_layer_sizes': [512], 'd_layer_sizes': [512, 128, 1],
+                       'lr_g': 0.01, 'lr_d': 0.01, 'reconstruct_weight': 20.,
+                       'unroll_steps': 5, 'save_memory_mode': False,
+                       'surrogate_model_config': surrogate_model_config,
+                       'surrogate_trainer_config': surrogate_trainer_config}
+    gowalla_attacker_config.append(attacker_config)
+
+    surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
     surrogate_trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam', 'lr': 0.1, 'l2_reg': 0.01,
                                 'n_epochs': 1, 'batch_size': 2 ** 12, 'dataloader_num_workers': 6,
                                 'test_batch_size': 2048, 'topks': [50], 'neg_ratio': 4, 'verbose': False}
@@ -204,6 +218,21 @@ def get_yelp_attacker_config():
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
     yelp_attacker_config.append(attacker_config)
+
+    surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
+    surrogate_trainer_config = {'name': 'UserBatchTrainer', 'optimizer': 'Adam', 'lr': 0.01, 'l2_reg': 0.001,
+                                'n_epochs': 49, 'batch_size': 2048, 'loss_function': 'mse_loss', 'weight': 20.,
+                                'test_batch_size': 2048, 'topks': [50], 'verbose': False}
+    attacker_config = {'name': 'LegUPAttacker', 'n_fakes': 355, 'topk': 50, 'n_inters': 36,
+                       'n_epochs': 3, 'n_pretrain_g_epochs': 45, 'n_pretrain_d_epochs': 5,
+                       'n_g_steps': 5, 'n_d_steps': 1, 'n_attack_steps': 50,
+                       'g_layer_sizes': [512], 'd_layer_sizes': [512, 128, 1],
+                       'lr_g': 0.01, 'lr_d': 0.01, 'reconstruct_weight': 20.,
+                       'unroll_steps': 1, 'save_memory_mode': True,
+                       'surrogate_model_config': surrogate_model_config,
+                       'surrogate_trainer_config': surrogate_trainer_config}
+    yelp_attacker_config.append(attacker_config)
+
 
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
     surrogate_trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam', 'lr': 0.01, 'l2_reg': 0.01,

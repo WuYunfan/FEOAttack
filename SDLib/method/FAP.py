@@ -6,7 +6,6 @@ class FAP(SDetection):
 
     def __init__(self, conf, trainingSet=None, testSet=None, labels=None, fold='[1]'):
         super(FAP, self).__init__(conf, trainingSet, testSet, labels, fold)
-        self.return_label = None
 
     def readConfiguration(self):
         super(FAP, self).readConfiguration()
@@ -163,10 +162,11 @@ class FAP(SDetection):
         while sIndex < self.k:
             spam = self.PSort[sIndex][0]
             spamList.append(spam)
+            print(spam)
             self.predLabels[spam] = 1
             sIndex += 1
 
-        self.return_label = self.predLabels.copy()
+        return_label = self.predLabels.copy()
 
         # trueLabels
         for user in self.dao.trainingSet_u:
@@ -183,4 +183,4 @@ class FAP(SDetection):
             del self.testLabels[user]
             differ += 1
 
-        return self.predLabels
+        return self.predLabels, return_label

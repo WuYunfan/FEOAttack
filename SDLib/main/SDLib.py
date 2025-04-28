@@ -2,9 +2,9 @@ import sys
 
 # sys.path.append("../")
 from re import split
-from models.detector.SDLib.tool.config import Config, LineConfig
-from models.detector.SDLib.tool.dataSplit import *
-from models.detector.SDLib.tool.file import FileIO
+from SDLib.tool.config import Config, LineConfig
+from SDLib.tool.dataSplit import *
+from SDLib.tool.file import FileIO
 
 
 class SDLib(object):

@@ -1,8 +1,7 @@
-from models.detector.SDLib.data.rating import RatingDAO
-from models.detector.SDLib.tool.config import Config,LineConfig
+from SDLib.data.rating import RatingDAO
+from SDLib.tool.config import Config,LineConfig
 from os.path import abspath
 from time import strftime,localtime,time
-from models.detector.SDLib.tool.file import FileIO
 from sklearn.metrics import classification_report
 class SDetection(object):
 

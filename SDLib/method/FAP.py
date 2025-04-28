@@ -1,6 +1,4 @@
-from models.detector.SDLib.baseclass.SDetection import SDetection
-from models.detector.SDLib.tool import config
-from sklearn.metrics import classification_report
+from SDLib.baseclass.SDetection import SDetection
 import numpy as np
 import random
 

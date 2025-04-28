@@ -1,10 +1,4 @@
-import numpy as np
-# from structure import sparseMatrix,new_sparseMatrix
-from models.detector.SDLib.tool.config import Config, LineConfig
-from models.detector.SDLib.tool.qmath import normalize
-from models.detector.SDLib.tool.dataSplit import DataSplit
-import os.path
-from re import split
+from SDLib.tool.config import Config, LineConfig
 from collections import defaultdict
 
 

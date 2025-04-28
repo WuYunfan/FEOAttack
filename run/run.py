@@ -42,7 +42,7 @@ def main():
         attacker.generate_fake_users(writer=writer)
         configs = get_config(device)
         for idx, (_, model_config, trainer_config) in enumerate(configs):
-            attacker.eval(model_config, trainer_config, writer=writer)
+            attacker.eval(model_config, trainer_config, writer=writer, detect=False if idx == 0 else False)
             if idx == 0:
                 configs[idx + 1][2]['ckpt_path'] = attacker.trainer.save_path
         writer.close()

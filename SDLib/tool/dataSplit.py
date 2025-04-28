@@ -1,5 +1,5 @@
 from random import random
-from models.detector.SDLib.tool.file import FileIO
+from SDLib.tool.file import FileIO
 class DataSplit(object):
 
     def __init__(self):

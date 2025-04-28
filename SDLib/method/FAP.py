@@ -97,7 +97,7 @@ class FAP(SDetection):
         if len(PUserOld) == 0:
             return True
         for i in range(0, len(PUser)):
-            if (PUser[i] - PUserOld[i]) > 0.01:
+            if (PUser[i] - PUserOld[i]) > 0.001:
                 return True
         return False
 
@@ -119,6 +119,11 @@ class FAP(SDetection):
             randDict[randNum] = 0
             self.seedUser.append(int(self.spammer[randNum]))
             # print len(randDict), randDict
+        for i in range(0, self.s):
+            randNum = random.randint(0, m - 1)
+            while randNum in self.seedUser:
+                randNum = random.randint(0, m - 1)
+            self.seedUser.append(randNum)
 
         #initial user and item spam probability
         for j in range(0, m):
@@ -162,7 +167,6 @@ class FAP(SDetection):
         while sIndex < self.k:
             spam = self.PSort[sIndex][0]
             spamList.append(spam)
-            print(spam)
             self.predLabels[spam] = 1
             sIndex += 1
 

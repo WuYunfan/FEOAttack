@@ -69,6 +69,18 @@ class BasicAttacker:
         with open(detection_label, 'w') as f:
             f.write('\n'.join([f'{i} 0' if i < self.n_users else f'{i} 1' for i in range(self.n_users + self.n_fakes)]))
 
+        '''
+        args = {
+            'ratings': detection_rating,
+            'ratings.setup': '-columns 0 1 2',
+            'label': detection_label,
+            'methodName': 'PCASelectUsers',
+            'evaluation.setup': '-ap 0.000001',
+            'kVals': 3,
+            'topKSpam': self.n_fakes,
+            'attackSize': '0.1',
+        }
+        '''
         args = {
             'ratings': detection_rating,
             'ratings.setup': '-columns 0 1 2',

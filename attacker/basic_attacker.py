@@ -4,7 +4,10 @@ from model import get_model
 from trainer import get_trainer
 from torch.utils.data import Dataset
 import torch
-
+import os
+import sys
+from SDLib.main.SDLib import SDLib
+from SDLib.tool.config import Config
 
 class BasicAttacker:
     def __init__(self, attacker_config):
@@ -48,7 +51,50 @@ class BasicAttacker:
                 self.dataset.train_array.extend([[fake_u + self.n_users, item] for item in train_items])
             self.dataset.n_users += self.n_fakes
 
-    def eval(self, model_config, trainer_config, verbose=True, writer=None, retrain=True):
+    def detect(self):
+        f = sys.stdout
+        output_path = f.name
+        output_dir = os.path.dirname(output_path)
+
+        detection_rating = os.path.join(output_dir, 'detection_rating.txt')
+        with open(detection_rating, 'w') as f:
+            for u in range(self.n_users):
+                for i in (self.dataset.train_data[u] | self.dataset.val_data[u]):
+                    f.write(f'{u} {i} 1.0\n')
+            for u in range(self.n_fakes):
+                for i in self.fake_user_inters[u]:
+                    f.write(f'{u + self.n_users} {i} 1.0\n')
+
+        detection_label = os.path.join(output_dir, 'detection_label.txt')
+        with open(detection_label, 'w') as f:
+            f.write('\n'.join([f'{i} 0' if i < self.n_users else f'{i} 1' for i in range(self.n_users + self.n_fakes)]))
+
+        args = {
+            'ratings': detection_rating,
+            'ratings.setup': '-columns 0 1 2',
+            'label': detection_label,
+            'methodName': 'FAP',
+            'evaluation.setup': '-ap 0.000001',
+            'seedUser': int(self.n_fakes * 0.1),
+            'topKSpam': self.n_fakes,
+            'output.setup': 'off',
+        }
+        detection_config = os.path.join(output_dir, 'detection_config.txt')
+        with open(detection_config, 'w') as f:
+            f.write('\n'.join([f'{k}={v}' for k, v in args.items()]))
+
+        sd = SDLib(Config(detection_config))
+        precision, recall = sd.execute()
+        print(f'Dection precision: {precision:.6f}, recall: {recall:.6f}')
+        for u in range(self.n_users, self.n_users + self.n_fakes):
+            if sd.return_label[u] == 1:
+                self.fake_user_inters[u - self.n_users] = []
+
+
+    def eval(self, model_config, trainer_config, verbose=True, writer=None, retrain=True, detect=False):
+        if detect:
+            self.detect()
+
         self.inject_fake_users()
 
         if self.model is None or retrain:

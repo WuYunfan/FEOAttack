@@ -22,9 +22,9 @@ def retrain_surrogate(self):
     with higher.innerloop_ctx(self.surrogate_model, self.surrogate_trainer.opt) as (fmodel, diffopt):
         fmodel.train()
         for _ in range(self.unroll_steps):
-            for users in self.surrogate_trainer.train_user_loader:
+            for i, users in enumerate(self.surrogate_trainer.train_user_loader):
                 users = users[0]
-                if self.save_memory_mode:
+                if self.save_memory_mode and i == 0:
                     users = torch.arange(self.n_users, self.n_users + self.n_fakes, dtype=torch.int64,
                                          device=self.device)
                 scores, l2_norm_sq = fmodel.forward(users)
@@ -32,7 +32,7 @@ def retrain_surrogate(self):
                 rec_loss = self.surrogate_trainer.loss(profiles, scores, self.surrogate_trainer.weight)
                 loss = rec_loss + self.surrogate_trainer.l2_reg * l2_norm_sq.mean()
                 diffopt.step(loss)
-                if self.save_memory_mode:
+                if self.save_memory_mode and i == 1:
                     break
 
         fmodel.eval()

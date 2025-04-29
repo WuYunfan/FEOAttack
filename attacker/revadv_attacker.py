@@ -64,7 +64,16 @@ class GradientAttacker(BasicAttacker):
         self.fake_tensor = self.init_fake_tensor(self.surrogate_trainer.data_tensor)
         self.adv_opt = SGD([self.fake_tensor], lr=self.lr, momentum=self.momentum)
 
-        self.target_user_tensor = torch.arange(self.n_users, dtype=torch.int64, device=self.device)
+        if attacker_config.get('uplift_ratio', None) is not None:
+            data_tensor = self.surrogate_trainer.data_tensor
+            y = torch.zeros([self.n_users], device=self.device, dtype=torch.float)
+            for item in self.target_items:
+                i_users = torch.nonzero(data_tensor[:, item])[:, 0]
+                for user in range(self.n_users):
+                    y[user] = (data_tensor[user, :][None, :] *  data_tensor[i_users, :]).sum()
+            self.target_user_tensor = torch.argsort(y, descending=True)[:int(self.n_users * attacker_config['uplift_ratio'])]
+        else:
+            self.target_user_tensor = torch.arange(self.n_users, dtype=torch.int64, device=self.device)
         self.target_item_tensor = torch.tensor(self.target_items, dtype=torch.int64, device=self.device)
 
     def init_fake_tensor(self, data_tensor):

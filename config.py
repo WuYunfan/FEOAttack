@@ -80,6 +80,17 @@ def get_gowalla_attacker_config():
     gowalla_attacker_config.append(attacker_config)
 
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
+    surrogate_trainer_config = {'name': 'UserBatchTrainer', 'optimizer': 'Adam', 'lr': 0.001, 'l2_reg': 0.1,
+                                'n_epochs': 45, 'batch_size': 2048, 'loss_function': 'mse_loss', 'weight': 20.,
+                                'test_batch_size': 2048, 'topks': [50], 'verbose': False}
+    attacker_config = {'name': 'RevAdvAttacker', 'lr': 10., 'momentum': 0.95, 'save_memory_mode': False,
+                       'n_fakes': 131, 'unroll_steps': 5, 'n_inters': 41, 'topk': 50, 'adv_epochs': 30,
+                       'uplift_ratio': 0.05,
+                       'surrogate_model_config': surrogate_model_config,
+                       'surrogate_trainer_config': surrogate_trainer_config}
+    gowalla_attacker_config.append(attacker_config)
+
+    surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
     surrogate_trainer_config = {'name': 'UserBatchTrainer', 'optimizer': 'Adam', 'lr': 0.01, 'l2_reg': 0.001,
                                 'n_epochs': 45, 'batch_size': 2048, 'loss_function': 'mse_loss', 'weight': 20.,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
@@ -215,6 +226,17 @@ def get_yelp_attacker_config():
     attacker_config = {'name': 'RevAdvAttacker', 'lr': 0.1, 'momentum': 0.95,
                        'n_fakes': 355, 'unroll_steps': 1, 'n_inters': 36, 'topk': 50, 'adv_epochs': 30,
                        'save_memory_mode': True,
+                       'surrogate_model_config': surrogate_model_config,
+                       'surrogate_trainer_config': surrogate_trainer_config}
+    yelp_attacker_config.append(attacker_config)
+
+    surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
+    surrogate_trainer_config = {'name': 'UserBatchTrainer', 'optimizer': 'Adam', 'lr': 0.01, 'l2_reg': 0.01,
+                                'n_epochs': 49, 'batch_size': 2048, 'loss_function': 'mse_loss', 'weight': 20.,
+                                'test_batch_size': 2048, 'topks': [50], 'verbose': False}
+    attacker_config = {'name': 'RevAdvAttacker', 'lr': 0.1, 'momentum': 0.95,
+                       'n_fakes': 355, 'unroll_steps': 1, 'n_inters': 36, 'topk': 50, 'adv_epochs': 30,
+                       'save_memory_mode': True, 'uplift_ratio': 0.05,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
     yelp_attacker_config.append(attacker_config)

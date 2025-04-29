@@ -120,20 +120,20 @@ def get_gowalla_attacker_config():
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
     attacker_config = {'name': 'FEOAttacker', 'n_fakes': 131, 'topk': 50, 'n_inters': 41,
                        'step_user': 10, 'n_training_epochs': 10, 'expected_hr': 0.05,
-                       'adv_weight': 0.01, 'diverse_weight': 0.001, 'l2_weight': 0.003,
-                       'look_ahead_lr': 0.1, 'prob': 0.9,
+                       'adv_weight': 0.3, 'kl_weight': 0.001,
+                       'look_ahead_lr': 0.1, 'filler_limit': 2,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
     gowalla_attacker_config.append(attacker_config)
 
     surrogate_model_config = {'name': 'LightGCN', 'embedding_size': 64,  'n_layers': 3, 'verbose': False}
-    surrogate_trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': 0.01, 'l2_reg': 1.e-5,
+    surrogate_trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': 0.01, 'l2_reg': 0.001,
                                 'n_epochs': 0, 'batch_size': 2 ** 14, 'dataloader_num_workers': 6,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
     attacker_config = {'name': 'FEOAttacker', 'n_fakes': 131, 'topk': 50, 'n_inters': 41,
                        'step_user': 10, 'n_training_epochs': 10, 'expected_hr': 0.05,
-                       'adv_weight': 0.001, 'diverse_weight': 0.001, 'l2_weight': 0.0001,
-                       'look_ahead_lr': 0.1, 'prob': 0.9,
+                       'adv_weight': None, 'kl_weight': None,
+                       'look_ahead_lr': 0.1, 'filler_limit': 2,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
     gowalla_attacker_config.append(attacker_config)
@@ -255,26 +255,27 @@ def get_yelp_attacker_config():
                        'surrogate_trainer_config': surrogate_trainer_config}
     yelp_attacker_config.append(attacker_config)
 
+
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
     surrogate_trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': 0.01, 'l2_reg': 0.001,
                                 'n_epochs': 0, 'batch_size': 2 ** 14, 'dataloader_num_workers': 6,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
     attacker_config = {'name': 'FEOAttacker', 'n_fakes': 355, 'topk': 50, 'n_inters': 36,
-                       'step_user': 20, 'n_training_epochs': 10, 'expected_hr': 0.05,
-                       'adv_weight': 0.03, 'diverse_weight': 0.1, 'l2_weight': 0.1,
-                       'look_ahead_lr': 0.1, 'prob': 0.9,
+                       'step_user': 30, 'n_training_epochs': 10, 'expected_hr': 0.05,
+                       'adv_weight': None, 'kl_weight': None,
+                       'look_ahead_lr': 0.1, 'filler_limit': 2,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
     yelp_attacker_config.append(attacker_config)
 
     surrogate_model_config = {'name': 'LightGCN', 'embedding_size': 64,  'n_layers': 3, 'verbose': False}
-    surrogate_trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': 0.01, 'l2_reg': 1.e-5,
+    surrogate_trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': 0.01, 'l2_reg': 0.001,
                                 'n_epochs': 0, 'batch_size': 2 ** 14, 'dataloader_num_workers': 6,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
     attacker_config = {'name': 'FEOAttacker', 'n_fakes': 355, 'topk': 50, 'n_inters': 36,
-                       'step_user': 20, 'n_training_epochs': 10, 'expected_hr': 0.05,
-                       'adv_weight': 0.003, 'diverse_weight': 0., 'l2_weight': 0.,
-                       'look_ahead_lr': 0.1, 'prob': 0.9,
+                       'step_user': 30, 'n_training_epochs': 10, 'expected_hr': 0.05,
+                       'adv_weight': None, 'kl_weight': None,
+                       'look_ahead_lr': 0.1, 'filler_limit': 2,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
     yelp_attacker_config.append(attacker_config)
@@ -358,20 +359,20 @@ def get_amazon_attacker_config():
                                 'test_batch_size': 4096, 'topks': [50], 'verbose': False}
     attacker_config = {'name': 'FEOAttacker', 'n_fakes': 1348, 'topk': 50, 'n_inters': 62,
                        'step_user': 100, 'n_training_epochs': 10, 'expected_hr': 0.05,
-                       'adv_weight': 0.001, 'diverse_weight': 0.0003, 'l2_weight': 0.001,
-                       'look_ahead_lr': 0.1, 'prob': 0.9,
+                       'adv_weight': None, 'kl_weight': None,
+                       'look_ahead_lr': 0.1, 'filler_limit': 2,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
     amazon_attacker_config.append(attacker_config)
 
-    surrogate_model_config = {'name': 'LightGCN', 'embedding_size': 64,  'n_layers': 3, 'verbose': False}
-    surrogate_trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': 0.01, 'l2_reg': 0.,
+    surrogate_model_config = {'name': 'LightGCN', 'embedding_size': 64, 'n_layers': 3, 'verbose': False}
+    surrogate_trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': 0.01, 'l2_reg': 0.001,
                                 'n_epochs': 0, 'batch_size': 2 ** 15, 'dataloader_num_workers': 10,
                                 'test_batch_size': 4096, 'topks': [50], 'verbose': False}
     attacker_config = {'name': 'FEOAttacker', 'n_fakes': 1348, 'topk': 50, 'n_inters': 62,
                        'step_user': 100, 'n_training_epochs': 10, 'expected_hr': 0.05,
-                       'adv_weight': 0.01, 'diverse_weight': 0.0003, 'l2_weight': 0.,
-                       'look_ahead_lr': 0.1, 'prob': 0.9,
+                       'adv_weight': None, 'kl_weight': None,
+                       'look_ahead_lr': 0.1, 'filler_limit': 2,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
     amazon_attacker_config.append(attacker_config)

@@ -41,8 +41,7 @@ class FEOAttacker(BasicAttacker):
     def add_filler_items(self, surrogate_model, temp_fake_user_tensor):
         counts = torch.zeros([self.n_items], dtype=torch.int, device=self.device)
         with torch.no_grad():
-            scores = torch.mm(surrogate_model.embedding.weight[temp_fake_user_tensor, :],
-                              surrogate_model.embedding.weight[surrogate_model.n_users:, :].t())
+            scores = surrogate_model.predict(temp_fake_user_tensor)
         for u_idx, f_u in enumerate(temp_fake_user_tensor):
             item_score = scores[u_idx, :]
             item_score[counts >= self.filler_limit] = 0.

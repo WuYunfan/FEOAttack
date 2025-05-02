@@ -46,10 +46,8 @@ def main():
         dataset_config['path'] = os.path.join(os.path.dirname(dataset_config['path']), 'time')
         attacker.dataset = get_dataset(dataset_config)
         configs = get_config(device)
-        for idx, (_, model_config, trainer_config) in enumerate(configs):
-            attacker.eval(model_config, trainer_config, writer=writer)
-            if idx == 0:
-                configs[idx + 1][2]['ckpt_path'] = attacker.trainer.save_path
+        _, model_config, trainer_config = configs[0]
+        attacker.eval(model_config, trainer_config, writer=writer, detect=False)
         writer.close()
         shutil.rmtree('checkpoints')
 

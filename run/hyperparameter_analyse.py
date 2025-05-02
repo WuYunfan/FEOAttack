@@ -29,9 +29,8 @@ def main():
     dataset_config = get_config(device)[0][0]
 
     hyperparameters = {'adv_weight': [1., 0.1, 0.01, 0.001, 0.0001, 0.],
-                       'diverse_weight': [1., 0.1, 0.01, 0.001, 0.0001, 0.],
-                       'l2_weight': [1., 0.1, 0.01, 0.001, 0.0001, 0.],
-                       'prob': [1., 0.99, 0.95, 0.9, 0.8, 0.],
+                       'kl_weight': [1., 0.1, 0.01, 0.001, 0.0001, 0.],
+                       'filler_limit': [1, 2, 5, 10],
                        'step_user': [5, 10, 20, 50, 100],
                        'expected_hr': [0.01, 0.05, 0.1, 0.2, 0.5, 1.]}
     for key in hyperparameters.keys():
@@ -40,7 +39,7 @@ def main():
             attacker_config[key] = value
 
             recalls = []
-            for i in range(5):
+            for i in range(len(target_items_lists)):
                 set_seed(seed_list[i])
                 dataset = get_dataset(dataset_config)
                 target_items = target_items_lists[i]

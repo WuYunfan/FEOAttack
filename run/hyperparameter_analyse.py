@@ -30,8 +30,8 @@ def main():
 
     hyperparameters = {'adv_weight': [1., 0.1, 0.01, 0.001, 0.0001, 0.],
                        'kl_weight': [1., 0.1, 0.01, 0.001, 0.0001, 0.],
-                       'filler_limit': [1, 2, 5, 10],
-                       'step_user': [5, 10, 20, 50, 100],
+                       'filler_limit': [1, 2, 5, 10], # [1, 2, 5, 10, 100]
+                       'step_user': [5, 10, 20, 50, 100], # [50, 100, 200, 500, 1000]
                        'expected_hr': [0.01, 0.05, 0.1, 0.2, 0.5, 1.]}
     for key in hyperparameters.keys():
         for value in hyperparameters[key]:

@@ -19,6 +19,11 @@ def objective(trial):
     # kl_weight = trial.suggest_categorical('kl_weight', [1.e-1, 1.e-2, 1.e-3]) lgcn-gowalla
     # adv_weight = trial.suggest_categorical('adv_weight', [0.01, 0.003, 0.001, 0.0003])
     # kl_weight = trial.suggest_categorical('kl_weight', [1.e-1, 1.e-2, 1.e-3]) lgcn-yelp
+    # adv_weight = trial.suggest_categorical('adv_weight', [0.01, 0.003, 0.001, 0.0003])
+    # kl_weight = trial.suggest_categorical('kl_weight', [1.e-2, 1.e-3, 1.e-4]) lgcn-amazon
+    # adv_weight = trial.suggest_categorical('adv_weight', [1., 0.3, 0.1, 0.03])
+    # kl_weight = trial.suggest_categorical('kl_weight', [1.e-1, 1.e-2, 1.e-3]) yelp
+
     set_seed(2023)
     device = torch.device('cuda')
     dataset_config, model_config, trainer_config = get_config(device)[0]

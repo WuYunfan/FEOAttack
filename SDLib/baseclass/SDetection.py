@@ -66,7 +66,7 @@ class SDetection(object):
         # preict the ratings or item ranking
         # print ('Predicting %s...' % (self.foldInfo))
         prediction, return_label = self.predict()
-        report = classification_report(self.testLabels, prediction, digits=4)
+        report = classification_report(self.testLabels, prediction, digits=7)
         # currentTime = currentTime = strftime("%Y-%m-%d %H-%M-%S", localtime(time()))
         # FileIO.writeFile(self.output['-dir'],self.algorName+'@'+currentTime+self.foldInfo,report)
         # save model

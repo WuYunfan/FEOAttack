@@ -1,6 +1,8 @@
 from SDLib.baseclass.SDetection import SDetection
 import numpy as np
 import random
+import scipy.sparse as sp
+
 
 class FAP(SDetection):
 
@@ -33,11 +35,12 @@ class FAP(SDetection):
     def __computeTProbability(self):
         # m--user count; n--item count
         m, n, tmp = self.dao.trainingSize()
-        self.TPUI = np.zeros((m, n))
-        self.TPIU = np.zeros((n, m))
+        self.TPUI = [], [], []
+        self.TPIU = [], [], []
 
         self.userUserIdDic = {}
         self.itemItemIdDic = {}
+        self.reveseitemItemIdDic = {}
         tmpUser = list(self.dao.user.values())
         tmpUserId = list(self.dao.user.keys())
         tmpItem = list(self.dao.item.values())
@@ -50,28 +53,35 @@ class FAP(SDetection):
             self.userUserIdDic[tmpUser[users]] = tmpUserId[users]
         for items in range(0, n):
             self.itemItemIdDic[tmpItem[items]] = tmpItemId[items]
+            self.reveseitemItemIdDic[tmpItemId[items]] = tmpItem[items]
         for i in range(0, m):
-            for j in range(0, n):
-                user = self.userUserIdDic[i]
-                item = self.itemItemIdDic[j]
-                # if has edge in graph,set a value ;otherwise set 0
-                if (user not in self.bipartiteGraphUI) or (item not in self.bipartiteGraphUI[user]):
-                    continue
-                else:
-                    w = float(self.bipartiteGraphUI[user][item])
-                    # to avoid positive feedback and reliability problem,we should Polish the w
-                    otherItemW = 0
-                    otherUserW = 0
-                    for otherItem in self.bipartiteGraphUI[user]:
-                        otherItemW += float(self.bipartiteGraphUI[user][otherItem])
-                    for otherUser in self.dao.trainingSet_i[item]:
-                        otherUserW += float(self.bipartiteGraphUI[otherUser][item])
-                    # wPrime = w*1.0/(otherUserW * otherItemW)
-                    wPrime = w
-                    self.TPUI[i][j] = wPrime / otherItemW
-                    self.TPIU[j][i] = wPrime / otherUserW
-            # if i % 100 == 0:
-            #     print ('progress: %d/%d' %(i,m))
+            user = self.userUserIdDic[i]
+            if user not in self.bipartiteGraphUI:
+                continue
+            for item in self.bipartiteGraphUI[user]:
+                j = self.reveseitemItemIdDic[item]
+                w = float(self.bipartiteGraphUI[user][item])
+                # to avoid positive feedback and reliability problem,we should Polish the w
+                otherItemW = 0
+                otherUserW = 0
+                for otherItem in self.bipartiteGraphUI[user]:
+                    otherItemW += float(self.bipartiteGraphUI[user][otherItem])
+                for otherUser in self.dao.trainingSet_i[item]:
+                    otherUserW += float(self.bipartiteGraphUI[otherUser][item])
+                # wPrime = w*1.0/(otherUserW * otherItemW)
+                wPrime = w
+
+                self.TPUI[0].append(wPrime / otherItemW)
+                self.TPUI[1].append(i)
+                self.TPUI[2].append(j)
+                self.TPIU[0].append(wPrime / otherUserW)
+                self.TPIU[1].append(j)
+                self.TPIU[2].append(i)
+            if i % 1000 == 0:
+                 print ('progress: %d/%d' %(i,m))
+        self.TPUI = sp.coo_matrix((self.TPUI[0], (self.TPUI[1], self.TPUI[2])), shape=(m, n), dtype=np.float32).tocsr()
+        self.TPIU = sp.coo_matrix((self.TPIU[0], (self.TPIU[1], self.TPIU[2])), shape=(n, m), dtype=np.float32).tocsr()
+
 
     def initModel(self):
         # construction of the bipartite graph
@@ -97,7 +107,7 @@ class FAP(SDetection):
         if len(PUserOld) == 0:
             return True
         for i in range(0, len(PUser)):
-            if (PUser[i] - PUserOld[i]) > 0.001:
+            if abs(PUser[i] - PUserOld[i]) > 0.001:
                 return True
         return False
 
@@ -143,8 +153,8 @@ class FAP(SDetection):
             for j in self.seedUser:
                 PUser[j] = 1
             PUserOld = PUser
-            PItem = np.dot(self.TPIU, PUser)
-            PUser = np.dot(self.TPUI, PItem)
+            PItem = self.TPIU @ PUser
+            PUser = self.TPUI @ PItem
             iterator += 1
             # print (self.foldInfo,'iteration', iterator)
 
@@ -170,13 +180,14 @@ class FAP(SDetection):
             self.predLabels[spam] = 1
             sIndex += 1
 
-        return_label = self.predLabels.copy()
+        return_label = {}
 
         # trueLabels
         for user in self.dao.trainingSet_u:
             userInd = self.dao.user[user]
             # print type(user), user, userInd
             self.testLabels[userInd] = int(self.labels[user])
+            return_label[int(user)] = self.predLabels[userInd]
 
         # delete seedUser labels
         differ = 0

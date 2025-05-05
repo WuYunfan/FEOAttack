@@ -7,7 +7,7 @@ class DataSplit(object):
 
     @staticmethod
     def dataSplit(data,test_ratio = 0.3,output=False,path='./',order=1):
-        if test_ratio>=1 or test_ratio <=0:
+        if test_ratio>=1 or test_ratio <0:
             test_ratio = 0.3
         testSet = {}
         trainingSet = {}

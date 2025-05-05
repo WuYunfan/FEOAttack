@@ -75,7 +75,7 @@ class BasicAttacker:
             'ratings.setup': '-columns 0 1 2',
             'label': detection_label,
             'methodName': 'PCASelectUsers',
-            'evaluation.setup': '-ap 0.000001',
+            'evaluation.setup': '-ap 0.',
             'kVals': 3,
             'topKSpam': self.n_fakes,
             'attackSize': '0.1',
@@ -86,7 +86,7 @@ class BasicAttacker:
             'ratings.setup': '-columns 0 1 2',
             'label': detection_label,
             'methodName': 'FAP',
-            'evaluation.setup': '-ap 0.000001',
+            'evaluation.setup': '-ap 0.',
             'seedUser': int(self.n_fakes * 0.1),
             'topKSpam': self.n_fakes,
             'output.setup': 'off',
@@ -98,9 +98,12 @@ class BasicAttacker:
         sd = SDLib(Config(detection_config))
         precision, recall, return_label = sd.execute()
         print(f'Dection precision: {precision:.6f}, recall: {recall:.6f}')
+        r = 0
         for u in range(self.n_users, self.n_users + self.n_fakes):
             if return_label[u] == 1:
                 self.fake_user_inters[u - self.n_users] = []
+                r += 1
+        print(f'Recall validation: {r / self.n_fakes:.6f}')
 
 
     def eval(self, model_config, trainer_config, verbose=True, writer=None, retrain=True, detect=False):

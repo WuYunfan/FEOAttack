@@ -12,6 +12,7 @@ from trainer import get_trainer
 from torch.optim import Adam, SGD
 from torch.utils.data import TensorDataset, DataLoader
 from attacker.revadv_attacker import retrain_surrogate
+import time
 
 
 class DiscreteAutoEncoder(nn.Module):
@@ -168,6 +169,7 @@ class LegUPAttacker(BasicAttacker):
         self.g_opt.step()
 
     def train(self, verbose=True, writer=None):
+        start_time = time.time()
         print('pretrain G......')
         for epoch in range(self.n_pretrain_g_epochs):
             vprint(f'Pretrain Generator Epoch: {epoch}, ', verbose, end='')
@@ -178,8 +180,11 @@ class LegUPAttacker(BasicAttacker):
             vprint(f'Pretrain Discriminator Epoch: {epoch}, ', verbose, end='')
             self.train_d(verbose=verbose, writer=writer)
         print('======================pretrain end======================\n')
+        consumed_time = time.time() - start_time
+        self.consumed_time += consumed_time
 
         for epoch in range(self.n_epochs):
+            start_time = time.time()
             vprint(f'==============epoch {epoch}===============', verbose)
             for step_d in range(self.n_d_steps):
                 self.train_d(verbose=verbose, writer=writer)
@@ -192,6 +197,9 @@ class LegUPAttacker(BasicAttacker):
             for step_attack in range(self.n_attack_steps):
                 vprint(f'==============Step Attack {step_attack}===============', verbose)
                 self.train_g(attack=True, verbose=verbose, writer=writer)
+
+            consumed_time = time.time() - start_time
+            self.consumed_time += consumed_time
 
     def generate_fake_users(self, verbose=True, writer=None):
         self.train(verbose=verbose, writer=writer)

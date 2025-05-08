@@ -25,10 +25,12 @@ def main():
     init_run(log_path, 2023)
     seed_list = [2024, 42, 0, 131, 1024]
 
+    validate_topk = 200
+    n_inters = [20, 40, 60, 80, 100]
     device = torch.device('cuda')
     dataset_config = get_config(device)[0][0]
     attacker_config = get_attacker_config()[-2]
-    attacker_config['validate_topk'] = 100
+    attacker_config['validate_topk'] = validate_topk
 
     for i in range(5):
         set_seed(seed_list[i])
@@ -36,6 +38,7 @@ def main():
         target_items = get_target_items(dataset)
         print('Target items of {:d}th run: {:s}'.format(i, str(target_items)))
         attacker_config['target_items'] = target_items
+        attacker_config['n_inters'] = n_inters[i]
 
         attacker = get_attacker(attacker_config, dataset)
         attacker.generate_fake_users()
@@ -47,7 +50,7 @@ def main():
         with torch.no_grad():
             scores = attacker.model.predict(fake_users)
             for u_idx in range(attacker.n_fakes):
-                a = set(scores[u_idx].topk(100).indices.cpu().numpy().tolist())
+                a = set(scores[u_idx].topk(validate_topk).indices.cpu().numpy().tolist())
                 b = attacker.recommendation_lists[u_idx]
                 commons.append(len(a & b) )
         print('Common items between top-100 predicted items: {:.6f}'.format(np.mean(commons)))

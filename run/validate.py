@@ -53,7 +53,7 @@ def main():
                 a = set(scores[u_idx].topk(validate_topk).indices.cpu().numpy().tolist())
                 b = attacker.recommendation_lists[u_idx]
                 commons.append(len(a & b) )
-        print('Common items between top-100 predicted items: {:.6f}'.format(np.mean(commons)))
+        print('Common items between top-{:d} predicted items: {:.6f}'.format(validate_topk, np.mean(commons)))
         shutil.rmtree('checkpoints')
 
 

@@ -381,8 +381,8 @@ def get_amazon_attacker_config():
                                 'test_batch_size': 4096, 'topks': [50], 'verbose': False}
     attacker_config = {'name': 'FEOAttacker', 'n_fakes': 1348, 'topk': 50, 'n_inters': 62,
                        'step_user': 100, 'n_training_epochs': 10, 'expected_hr': 0.05,
-                       'adv_weight': 0.1, 'kl_weight': 0.0001,
-                       'look_ahead_lr': 0.1, 'filler_limit': 2,
+                       'adv_weight': 0.1, 'kl_weight': 0.001,
+                       'look_ahead_lr': 0.1, 'filler_limit': 1,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
     amazon_attacker_config.append(attacker_config)
@@ -394,7 +394,7 @@ def get_amazon_attacker_config():
     attacker_config = {'name': 'FEOAttacker', 'n_fakes': 1348, 'topk': 50, 'n_inters': 62,
                        'step_user': 100, 'n_training_epochs': 10, 'expected_hr': 0.05,
                        'adv_weight': 0.003, 'kl_weight': 0.001,
-                       'look_ahead_lr': 0.1, 'filler_limit': 2,
+                       'look_ahead_lr': 0.1, 'filler_limit': 1,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
     amazon_attacker_config.append(attacker_config)

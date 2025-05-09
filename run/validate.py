@@ -33,7 +33,7 @@ def main():
     attacker_config['validate_topk'] = validate_topk
 
     for i in range(5):
-        set_seed(seed_list[i])
+        set_seed(seed_list[0])
         dataset = get_dataset(dataset_config)
         target_items = get_target_items(dataset)
         print('Target items of {:d}th run: {:s}'.format(i, str(target_items)))

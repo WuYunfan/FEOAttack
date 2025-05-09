@@ -49,7 +49,7 @@ def main():
                 attacker = get_attacker(attacker_config, dataset)
                 attacker.generate_fake_users()
                 _, model_config, trainer_config = get_config(device)[0]
-                recall = attacker.eval(model_config, trainer_config) * 100
+                recall = attacker.eval(model_config, trainer_config, detect=False) * 100
                 recalls.append(recall)
                 shutil.rmtree('checkpoints')
             print('Hyper-parameter {:s} with value {:.6f}, mean {:.3f}%, std {:.3f}%'.

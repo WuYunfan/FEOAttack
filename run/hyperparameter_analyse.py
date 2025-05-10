@@ -35,7 +35,7 @@ def main():
                        'expected_hr': [0.01, 0.05, 0.1, 0.2, 0.5, 1.]}
     for key in hyperparameters.keys():
         for value in hyperparameters[key]:
-            attacker_config = get_attacker_config()[-2]
+            attacker_config = get_attacker_config()[-1]
             attacker_config[key] = value
 
             recalls = []

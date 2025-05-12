@@ -9,7 +9,7 @@ from config import get_gowalla_attacker_config as get_attacker_config
 import shutil
 import numpy as np
 
-""""
+"""
 target_items_lists = [[13163, 9306, 11375, 4780, 9990], [275, 7673, 7741, 10376, 7942],
                       [5851, 11920, 12563, 1254, 9246], [1692, 8460, 8293, 2438, 4490],
                       [12094, 12757, 3592, 4019, 2534]]

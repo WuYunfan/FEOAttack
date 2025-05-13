@@ -132,7 +132,7 @@ def get_gowalla_attacker_config():
     attacker_config = {'name': 'FEOAttacker', 'n_fakes': 131, 'topk': 50, 'n_inters': 41,
                        'step_user': 10, 'n_training_epochs': 10, 'expected_hr': 0.05,
                        'adv_weight': 0.3, 'kl_weight': 0.001,
-                       'look_ahead_lr': 0.1, 'filler_limit': 2,
+                       'look_ahead_lr': 0.1, 'filler_limit': 1,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
     gowalla_attacker_config.append(attacker_config)
@@ -268,13 +268,13 @@ def get_yelp_attacker_config():
 
 
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
-    surrogate_trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': 0.01, 'l2_reg': 0.01,
+    surrogate_trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': 0.01, 'l2_reg': 0.03,
                                 'n_epochs': 0, 'batch_size': 2 ** 14, 'dataloader_num_workers': 6,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
     attacker_config = {'name': 'FEOAttacker', 'n_fakes': 355, 'topk': 50, 'n_inters': 36,
                        'step_user': 30, 'n_training_epochs': 10, 'expected_hr': 0.05,
-                       'adv_weight': 0.3, 'kl_weight': 0.0001,
-                       'look_ahead_lr': 0.1, 'filler_limit': 2,
+                       'adv_weight': 0.3, 'kl_weight': 0.001,
+                       'look_ahead_lr': 0.1, 'filler_limit': 1,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
     yelp_attacker_config.append(attacker_config)

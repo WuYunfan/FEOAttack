@@ -30,13 +30,13 @@ def main():
     seed_list = [2024, 42, 0, 131, 1024]
 
     validate_topk = 200
-    n_inters = [20, 40, 60, 80, 100]
+    n_inters = [10, 20, 40, 60, 80, 100]
     device = torch.device('cuda')
     dataset_config = get_config(device)[0][0]
     attacker_config = get_attacker_config()[-1]
     attacker_config['validate_topk'] = validate_topk
 
-    for i in range(5):
+    for i in range(6):
         set_seed(seed_list[0])
         dataset = get_dataset(dataset_config)
         target_items = get_target_items(dataset)

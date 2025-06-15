@@ -27,7 +27,7 @@ def objective(trial):
     attacker_config = {'name': 'FEOAttacker', 'n_fakes': 131, 'topk': 50, 'n_inters': 41,
                        'step_user': 10, 'n_training_epochs': 10, 'expected_hr': 0.05,
                        'adv_weight': adv_weight, 'kl_weight': kl_weight,
-                       'look_ahead_lr': 0.1, 'filler_limit': 2,
+                       'look_ahead_lr': 0.1, 'filler_limit': 1,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
 

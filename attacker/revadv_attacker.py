@@ -70,7 +70,7 @@ class GradientAttacker(BasicAttacker):
             for item in self.target_items:
                 i_users = torch.nonzero(data_tensor[:, item])[:, 0]
                 for user in range(self.n_users):
-                    y[user] = (data_tensor[user, :][None, :] *  data_tensor[i_users, :]).sum()
+                    y[user] = y[user] + (data_tensor[user, :][None, :] *  data_tensor[i_users, :]).sum()
             self.target_user_tensor = torch.argsort(y, descending=True)[:int(self.n_users * attacker_config['uplift_ratio'])]
         else:
             self.target_user_tensor = torch.arange(self.n_users, dtype=torch.int64, device=self.device)

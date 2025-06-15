@@ -273,7 +273,7 @@ def get_yelp_attacker_config():
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
     attacker_config = {'name': 'FEOAttacker', 'n_fakes': 355, 'topk': 50, 'n_inters': 36,
                        'step_user': 30, 'n_training_epochs': 10, 'expected_hr': 0.05,
-                       'adv_weight': 0.3, 'kl_weight': 0.001,
+                       'adv_weight': 0.1, 'kl_weight': 0.001,
                        'look_ahead_lr': 0.1, 'filler_limit': 1,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}

@@ -97,7 +97,7 @@ class BasicAttacker:
 
         sd = SDLib(Config(detection_config))
         precision, recall, return_label = sd.execute()
-        print(f'Dection precision: {precision:.6f}, recall: {recall:.6f}')
+        print(f'Detection precision: {precision:.6f}, recall: {recall:.6f}')
         r = 0
         for u in range(self.n_users, self.n_users + self.n_fakes):
             if return_label[u] == 1:
